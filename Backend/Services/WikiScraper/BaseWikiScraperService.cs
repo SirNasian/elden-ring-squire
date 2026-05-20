@@ -7,6 +7,7 @@ namespace EldenRingSquire.Backend.Services.WikiScraper;
 
 public abstract class BaseWikiScraperService(HttpClient httpClient) : IWikiScraperService
 {
+	public abstract Task<IList<Boss>> ScrapeBosses(CancellationToken ct = default);
 	public abstract Task<IList<Grace>> ScrapeGraces(CancellationToken ct = default);
 
 	protected async Task<IDocument> GetParsedDocumentAsync(string url, CancellationToken cancellationToken = default)
