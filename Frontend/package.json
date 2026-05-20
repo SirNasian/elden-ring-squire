@@ -5,6 +5,7 @@
 	},
 	"dependencies": {
 		"@primeuix/themes": "^2.0.3",
+		"@tanstack/vue-virtual": "^3.13.24",
 		"primeicons": "^7.0.0",
 		"primevue": "^4.3.5",
 		"vue": "^3.5.13"

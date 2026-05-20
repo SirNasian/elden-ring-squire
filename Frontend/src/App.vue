@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue"
+import { ref, computed, watch, onMounted } from "vue"
+import { useVirtualizer } from "@tanstack/vue-virtual"
 
 interface ChecklistItem {
 	id: string
@@ -11,54 +12,97 @@ interface ChecklistItem {
 	completed: boolean
 }
 
-const STORAGE_KEY = "elden-ring-squire-completed";
+const STORAGE_KEY = "elden-ring-squire-completed"
 
-const bosses = ref<ChecklistItem[]>([]);
-const graces = ref<ChecklistItem[]>([]);
-
-const loading = ref(false);
-const error = ref<string | null>(null);
+const bosses = ref<ChecklistItem[]>([])
+const graces = ref<ChecklistItem[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
 
 const load = async () => {
-	loading.value = true;
-	error.value = null;
-
+	loading.value = true
+	error.value = null
 	try {
 		const [bossRes, graceRes] = await Promise.all([
 			fetch("/api/scrape/bosses", { method: "POST" }),
 			fetch("/api/scrape/graces", { method: "POST" }),
-		]);
-
+		])
 		if (!bossRes.ok || !graceRes.ok)
-			throw new Error("Failed to load data from the backend.");
-
+			throw new Error("Failed to load data from the backend.")
 		const [bossData, graceData]: [Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[]] =
-			await Promise.all([bossRes.json(), graceRes.json()]);
-
-		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"));
-		const mapCompleted = (x: Omit<ChecklistItem, "completed">) => ({ ...x, completed: completed.has(x.id) });
-		const sortDlc = (a: ChecklistItem, b: ChecklistItem) => ((a.dlc ? 1 : 0) - (b.dlc ? 1 : 0));
-		bosses.value = bossData.map(mapCompleted).sort(sortDlc);
-		graces.value = graceData.map(mapCompleted).sort(sortDlc);
-
+			await Promise.all([bossRes.json(), graceRes.json()])
+		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"))
+		const mapCompleted = (x: Omit<ChecklistItem, "completed">) => ({ ...x, completed: completed.has(x.id) })
+		const sortDlc = (a: ChecklistItem, b: ChecklistItem) => (a.dlc ? 1 : 0) - (b.dlc ? 1 : 0)
+		bosses.value = bossData.map(mapCompleted).sort(sortDlc)
+		graces.value = graceData.map(mapCompleted).sort(sortDlc)
 	} catch (e) {
-		error.value = e instanceof Error ? e.message : "An unexpected error occurred.";
+		error.value = e instanceof Error ? e.message : "An unexpected error occurred."
 	} finally {
-		loading.value = false;
+		loading.value = false
 	}
 }
 
-const save = async (): Promise<void> => {
-	const completed: string[] = [];
-	completed.push(...bosses.value.filter(x => x.completed).map(x => x.id));
-	completed.push(...graces.value.filter(x => x.completed).map(x => x.id));
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(completed));
+const save = (): void => {
+	const completed = [
+		...bosses.value.filter(x => x.completed).map(x => x.id),
+		...graces.value.filter(x => x.completed).map(x => x.id),
+	]
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(completed))
 }
 
-const bossCount = computed(() => bosses.value.filter(x => x.completed).length);
-const graceCount = computed(() => graces.value.filter(x => x.completed).length);
+const bossCount = computed(() => bosses.value.filter(x => x.completed).length)
+const graceCount = computed(() => graces.value.filter(x => x.completed).length)
 
-onMounted(load);
+type CompletionFilter = "all" | "completed" | "incomplete"
+
+const nameFilter = ref("")
+
+const completionFilter = ref<CompletionFilter>("all")
+const completionOptions: { label: string; value: CompletionFilter }[] = [
+	{ label: "All", value: "all" },
+	{ label: "Completed", value: "completed" },
+	{ label: "Incomplete", value: "incomplete" },
+]
+
+function matchesFilters(item: ChecklistItem): boolean {
+	if (nameFilter.value.trim()) {
+		const lower = item.name.toLowerCase()
+		if (!nameFilter.value.trim().toLowerCase().split(/\s+/).every(w => lower.includes(w)))
+			return false
+	}
+	if (completionFilter.value === "completed") return item.completed
+	if (completionFilter.value === "incomplete") return !item.completed
+	return true
+}
+
+const filteredBosses = computed(() => bosses.value.filter(matchesFilters))
+const filteredGraces = computed(() => graces.value.filter(matchesFilters))
+
+const activeTab = ref<"bosses" | "graces">("bosses")
+const activeItems = computed(() =>
+	activeTab.value === "bosses" ? filteredBosses.value : filteredGraces.value
+)
+
+const scrollRef = ref<HTMLElement | null>(null)
+
+const virtualizer = useVirtualizer(computed(() => ({
+	count: activeItems.value.length,
+	getScrollElement: () => scrollRef.value,
+	estimateSize: () => 42,
+	overscan: 10,
+})))
+
+const virtualRows = computed(() =>
+	virtualizer.value.getVirtualItems().map(vRow => ({
+		...vRow,
+		item: activeItems.value[vRow.index],
+	}))
+)
+
+watch(activeTab, () => scrollRef.value?.scrollTo({ top: 0 }))
+
+onMounted(load)
 </script>
 
 <template>
@@ -73,7 +117,20 @@ onMounted(load);
 			{{ error }}
 		</div>
 
-		<Tabs value="bosses">
+		<Toolbar class="checklist-toolbar">
+			<template #start>
+				<IconField>
+					<InputIcon class="pi pi-search" />
+					<InputText v-model="nameFilter" placeholder="Search by name..." />
+				</IconField>
+			</template>
+			<template #end>
+				<SelectButton v-model="completionFilter" :options="completionOptions" option-label="label"
+					option-value="value" :allow-empty="false" />
+			</template>
+		</Toolbar>
+
+		<Tabs v-model:value="activeTab">
 			<TabList>
 				<Tab value="bosses">
 					Bosses
@@ -84,69 +141,44 @@ onMounted(load);
 					<Tag :value="`${graceCount} / ${graces.length}`" severity="secondary" class="tab-count" />
 				</Tab>
 			</TabList>
-
-			<TabPanels>
-				<TabPanel value="bosses">
-					<DataTable :value="bosses" :loading="loading" data-key="id" striped-rows scrollable
-						scroll-height="calc(100vh - 280px)">
-						<Column header="" style="width: 3.5rem">
-							<template #body="{ data }">
-								<Checkbox v-model="data.completed" :binary="true" @change="save()" />
-							</template>
-						</Column>
-						<Column field="name" header="Name">
-							<template #body="{ data }">
-								<a v-if="data.url" :href="data.url" target="_blank" rel="noopener noreferrer">{{
-									data.name }}</a>
-								<span v-else>{{ data.name }}</span>
-							</template>
-						</Column>
-						<Column field="group" header="Location" />
-						<Column field="dlc" header="" style="width: 5rem">
-							<template #body="{ data }">
-								<Tag v-if="data.dlc" value="DLC" severity="warn" />
-							</template>
-						</Column>
-						<Column field="completed" header="" style="width: 8rem">
-							<template #body="{ data }">
-								<Tag :value="data.completed ? 'Defeated' : 'Alive'"
-									:severity="data.completed ? 'success' : 'danger'" />
-							</template>
-						</Column>
-					</DataTable>
-				</TabPanel>
-
-				<TabPanel value="graces">
-					<DataTable :value="graces" :loading="loading" data-key="id" striped-rows scrollable
-						scroll-height="calc(100vh - 280px)">
-						<Column header="" style="width: 3.5rem">
-							<template #body="{ data }">
-								<Checkbox v-model="data.completed" :binary="true" @change="save()" />
-							</template>
-						</Column>
-						<Column field="name" header="Name">
-							<template #body="{ data }">
-								<a v-if="data.url" :href="data.url" target="_blank" rel="noopener noreferrer">{{
-									data.name }}</a>
-								<span v-else>{{ data.name }}</span>
-							</template>
-						</Column>
-						<Column field="group" header="Location" />
-						<Column field="dlc" header="" style="width: 5rem">
-							<template #body="{ data }">
-								<Tag v-if="data.dlc" value="DLC" severity="warn" />
-							</template>
-						</Column>
-						<Column field="completed" header="" style="width: 8rem">
-							<template #body="{ data }">
-								<Tag :value="data.completed ? 'Found' : 'Not Found'"
-									:severity="data.completed ? 'success' : 'danger'" />
-							</template>
-						</Column>
-					</DataTable>
-				</TabPanel>
-			</TabPanels>
 		</Tabs>
+
+		<div class="table-header table-grid">
+			<div></div>
+			<div>Name</div>
+			<div>{{ activeTab === "bosses" ? "Location" : "Area" }}</div>
+			<div></div>
+			<div></div>
+		</div>
+
+		<div ref="scrollRef" class="table-scroll">
+			<div v-if="loading" class="table-empty">
+				<i class="pi pi-spin pi-spinner" /> Loading...
+			</div>
+			<div v-else :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
+				<div v-for="row in virtualRows" :key="String(row.key)" class="table-row table-grid"
+					:class="{ 'row-stripe': row.index % 2 !== 0, 'row-done': row.item.completed }"
+					:style="{ position: 'absolute', top: 0, width: '100%', transform: `translateY(${row.start}px)` }">
+					<div class="cell">
+						<Checkbox v-model="row.item.completed" :binary="true" @change="save()" />
+					</div>
+					<div class="cell">
+						<a v-if="row.item.url" :href="row.item.url" target="_blank" rel="noopener noreferrer">{{
+							row.item.name
+						}}</a>
+						<span v-else>{{ row.item.name }}</span>
+					</div>
+					<div class="cell">{{ row.item.group }}</div>
+					<div class="cell">
+						<Tag v-if="row.item.dlc" value="DLC" severity="warn" />
+					</div>
+					<div class="cell">
+						<Tag :value="row.item.completed ? (activeTab === 'bosses' ? 'Defeated' : 'Found') : (activeTab === 'bosses' ? 'Alive' : 'Not Found')"
+							:severity="row.item.completed ? 'success' : 'danger'" />
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -195,27 +227,63 @@ body {
 	color: var(--p-red-700);
 }
 
+.checklist-toolbar {
+	margin-bottom: 0.75rem;
+}
+
 .tab-count {
 	margin-left: 0.5rem;
 	font-size: 0.75rem;
 }
 
-.progress-row {
+.table-grid {
+	display: grid;
+	grid-template-columns: 3.5rem 1fr auto 5rem 8rem;
+	align-items: center;
+}
+
+.table-header {
+	font-weight: 600;
+	font-size: 0.875rem;
+	padding: 0.5rem 0.75rem;
+	border-bottom: 2px solid var(--p-surface-border);
+	background: var(--p-surface-ground);
+}
+
+.table-header > div {
+	padding: 0 0.25rem;
+}
+
+.table-scroll {
+	overflow-y: auto;
+	max-height: calc(100vh - 280px);
+}
+
+.table-row {
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--p-surface-border);
+	background: var(--p-surface-card);
+}
+
+.row-stripe {
+	background: var(--p-surface-ground);
+}
+
+.row-done {
+	opacity: 0.5;
+}
+
+.cell {
+	padding: 0 0.25rem;
+}
+
+.table-empty {
 	display: flex;
 	align-items: center;
-	gap: 1rem;
-	padding: 0.75rem 0 1rem;
-}
-
-.progress-label {
-	white-space: nowrap;
-	font-size: 0.875rem;
+	justify-content: center;
+	gap: 0.5rem;
+	height: 6rem;
 	color: var(--p-text-muted-color);
-	min-width: 9rem;
-}
-
-.progress-bar {
-	flex: 1;
 }
 
 a {
