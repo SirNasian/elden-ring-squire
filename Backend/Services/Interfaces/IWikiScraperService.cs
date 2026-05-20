@@ -1,4 +1,4 @@
-using EldenRingSquire.Backend.Models;
+using EldenRingSquire.Backend.Models.Checklist;
 
 namespace EldenRingSquire.Backend.Services.Interfaces;
 

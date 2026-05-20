@@ -1,11 +1,11 @@
 using AngleSharp.Dom;
-using EldenRingSquire.Backend.Models;
+using EldenRingSquire.Backend.Models.Checklist;
 
 namespace EldenRingSquire.Backend.Services.WikiScraper;
 
 public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperService(http)
 {
-	private const string SITES_OF_GRACE = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
+	private const string URL_GRACES = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
 
 	public override async Task<IList<Grace>> ScrapeGraces(CancellationToken ct = default)
 	{
@@ -18,16 +18,17 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 				.Replace("'", "").Replace(".", "").Replace(" ", "")
 				.Trim();
 
-		static Func<IElement, Grace> ConstructGrace(string group) => x => new()
+		static Func<IElement, Grace> ConstructGrace(string area, bool dlc) => x => new()
 		{
 			Id = ExtractGraceId(x),
 			Name = ExtractGraceName(x),
-			Area = group.Split('(')[0].Trim(),
+			Group = area.Split('(')[0].Trim(),
 			Url = x.QuerySelector("a")?.GetAttribute("href"),
+			Dlc = dlc,
 		};
 
 		var graces = new List<Grace>();
-		var document = await GetParsedDocumentAsync(SITES_OF_GRACE, ct);
+		var document = await GetParsedDocumentAsync(URL_GRACES, ct);
 		foreach (var tabContent in document.QuerySelectorAll("div .tabcontent"))
 			foreach (var sectionRow in tabContent.QuerySelectorAll("div .row"))
 				foreach (var sectionColumn in sectionRow.QuerySelectorAll("div"))
@@ -36,7 +37,7 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 							heading
 								.NextElementSibling
 								?.QuerySelectorAll("li")
-								.Select(ConstructGrace(heading.TextContent))
+								.Select(ConstructGrace(heading.TextContent, tabContent.ClassList.Contains("1-tab")))
 							?? []
 						);
 

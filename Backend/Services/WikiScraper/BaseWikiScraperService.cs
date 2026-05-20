@@ -1,6 +1,6 @@
 using AngleSharp;
 using AngleSharp.Dom;
-using EldenRingSquire.Backend.Models;
+using EldenRingSquire.Backend.Models.Checklist;
 using EldenRingSquire.Backend.Services.Interfaces;
 
 namespace EldenRingSquire.Backend.Services.WikiScraper;
