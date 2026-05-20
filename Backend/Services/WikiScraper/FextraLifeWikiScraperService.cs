@@ -5,6 +5,7 @@ namespace EldenRingSquire.Backend.Services.WikiScraper;
 
 public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperService(http)
 {
+	private const string URL_ROOT   = "https://eldenring.wiki.fextralife.com";
 	private const string URL_BOSSES = "https://eldenring.wiki.fextralife.com/Bosses";
 	private const string URL_GRACES = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
 
@@ -18,7 +19,7 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 			Id = ConvertNameToId($"{area}-{ExtractName(x)}"),
 			Name = ExtractName(x),
 			Group = area ?? "",
-			Url = x.GetAttribute("href"),
+			Url = $"{URL_ROOT}{x.GetAttribute("href")}",
 			Dlc = dlc,
 		};
 
@@ -54,7 +55,7 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 			Id = ConvertNameToId(ExtractName(x)),
 			Name = ExtractName(x),
 			Group = area.Split('(')[0].Trim(),
-			Url = x.QuerySelector("a")?.GetAttribute("href"),
+			Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
 			Dlc = dlc,
 		};
 
