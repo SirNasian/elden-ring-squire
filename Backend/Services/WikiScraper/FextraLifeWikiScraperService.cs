@@ -18,7 +18,7 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 			Id = ConvertNameToId($"{area}-{x.TextContent}"),
 			Name = x.TextContent,
 			Group = area ?? "",
-			Url = $"{URL_ROOT}{x.GetAttribute("href")}",
+			Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
 			Dlc = dlc,
 		};
 
