@@ -33,9 +33,8 @@ const load = async () => {
 			await Promise.all([bossRes.json(), graceRes.json()])
 		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"))
 		const mapCompleted = (x: Omit<ChecklistItem, "completed">) => ({ ...x, completed: completed.has(x.id) })
-		const sortDlc = (a: ChecklistItem, b: ChecklistItem) => (a.dlc ? 1 : 0) - (b.dlc ? 1 : 0)
-		bosses.value = bossData.map(mapCompleted).sort(sortDlc)
-		graces.value = graceData.map(mapCompleted).sort(sortDlc)
+		bosses.value = bossData.map(mapCompleted)
+		graces.value = graceData.map(mapCompleted)
 	} catch (e) {
 		error.value = e instanceof Error ? e.message : "An unexpected error occurred."
 	} finally {

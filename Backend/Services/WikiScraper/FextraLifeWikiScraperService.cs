@@ -41,7 +41,7 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 							);
 					}
 
-		return bosses;
+		return [.. bosses.OrderBy(x => x.Dlc)];
 	}
 
 	public override async Task<IList<Grace>> ScrapeGraces(CancellationToken ct = default)
@@ -72,7 +72,7 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 							?? []
 						);
 
-		return graces;
+		return [.. graces.OrderBy(x => x.Dlc)];
 	}
 
 	private static string ConvertNameToId(string name) => name
