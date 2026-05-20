@@ -13,11 +13,10 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 	{
 		var bosses = new List<Boss>();
 
-		static string ExtractName(IElement x) => x.TextContent;
 		static Func<IElement, Boss> ConstructItem(string? area, bool dlc) => x => new()
 		{
-			Id = ConvertNameToId($"{area}-{ExtractName(x)}"),
-			Name = ExtractName(x),
+			Id = ConvertNameToId($"{area}-{x.TextContent}"),
+			Name = x.TextContent,
 			Group = area ?? "",
 			Url = $"{URL_ROOT}{x.GetAttribute("href")}",
 			Dlc = dlc,
@@ -36,7 +35,7 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 						if (item is not null)
 							bosses.AddRange(
 								item
-									.QuerySelectorAll("li > a")
+									.QuerySelectorAll("li")
 									.Select(ConstructItem(heading.QuerySelector("a")?.TextContent, dlc))
 								?? []
 							);
