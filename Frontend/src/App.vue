@@ -80,6 +80,16 @@ const filteredBosses = computed(() => bosses.value.filter(matchesFilters))
 const filteredGraces = computed(() => graces.value.filter(matchesFilters))
 
 const activeTab = ref<"bosses" | "graces">("bosses")
+
+watch([filteredBosses, filteredGraces], () => {
+	const currentEmpty = activeTab.value === "bosses"
+		? filteredBosses.value.length === 0
+		: filteredGraces.value.length === 0
+	if (!currentEmpty) return
+	if (activeTab.value === "bosses" && filteredGraces.value.length > 0) activeTab.value = "graces"
+	else if (activeTab.value === "graces" && filteredBosses.value.length > 0) activeTab.value = "bosses"
+})
+
 const activeItems = computed(() =>
 	activeTab.value === "bosses" ? filteredBosses.value : filteredGraces.value
 )
@@ -156,7 +166,7 @@ onMounted(load)
 				<i class="pi pi-spin pi-spinner" /> Loading...
 			</div>
 			<div v-else :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
-				<div v-for="row in virtualRows" :key="String(row.key)" class="table-row table-grid"
+				<div v-for="row in virtualRows" :key="row.item.id" class="table-row table-grid"
 					:class="{ 'row-stripe': row.index % 2 !== 0, 'row-done': row.item.completed }"
 					:style="{ position: 'absolute', top: 0, width: '100%', transform: `translateY(${row.start}px)` }">
 					<div class="cell">
