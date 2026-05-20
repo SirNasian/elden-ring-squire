@@ -15,7 +15,7 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 		static string ExtractName(IElement x) => x.TextContent;
 		static Func<IElement, Boss> ConstructItem(string? area, bool dlc) => x => new()
 		{
-			Id = ConvertNameToId(ExtractName(x)),
+			Id = ConvertNameToId($"{area}-{ExtractName(x)}"),
 			Name = ExtractName(x),
 			Group = area ?? "",
 			Url = x.GetAttribute("href"),
