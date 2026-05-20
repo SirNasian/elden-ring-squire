@@ -1,8 +1,8 @@
 {
 	"$schema": "https://json.schemastore.org/launchsettings.json",
 	"profiles": {
-		"http": {
-			"commandName": "Backend",
+		"Backend": {
+			"commandName": "Project",
 			"dotnetRunMessages": true,
 			"launchBrowser": true,
 			"applicationUrl": "http://localhost:5000",

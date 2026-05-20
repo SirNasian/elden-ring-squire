@@ -4,4 +4,8 @@
 		<RootNamespace>EldenRingSquire.Backend</RootNamespace>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<PackageReference Include="AngleSharp" />
+	</ItemGroup>
+
 </Project>
