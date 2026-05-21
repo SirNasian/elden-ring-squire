@@ -154,6 +154,13 @@ const virtualRows = computed(() =>
 	}))
 )
 
+const toggleFirst = () => {
+	const first = activeItems.value[0]
+	if (!first) return
+	first.completed = !first.completed
+	save()
+}
+
 watch(activeTab, () => scrollRef.value?.scrollTo({ top: 0 }))
 
 onMounted(load)
@@ -175,7 +182,7 @@ onMounted(load)
 			<template #start>
 				<IconField>
 					<InputIcon class="pi pi-search" />
-					<InputText v-model="nameFilter" placeholder="Search by name..." />
+					<InputText v-model="nameFilter" placeholder="Search by name..." @keydown.enter="toggleFirst" />
 				</IconField>
 			</template>
 			<template #end>
