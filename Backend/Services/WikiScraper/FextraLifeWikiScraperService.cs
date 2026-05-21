@@ -12,7 +12,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_BOSSES = "https://eldenring.wiki.fextralife.com/Bosses";
 	private const string URL_GRACES = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
 
-	public override async Task<IList<Boss>> ScrapeBosses(CancellationToken ct = default)
+	public override async Task<IList<Boss>> GetBosses(CancellationToken ct = default)
 	{
 		static Func<IElement, Boss> ConstructItem(string? area, bool dlc) => x => new()
 		{
@@ -51,7 +51,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		return cache.Set(URL_BOSSES, bosses, cacheExpiry);
 	}
 
-	public override async Task<IList<Grace>> ScrapeGraces(CancellationToken ct = default)
+	public override async Task<IList<Grace>> GetGraces(CancellationToken ct = default)
 	{
 		static string ExtractName(IElement x) =>
 			string.Concat(x.ChildNodes.Where(x => x.NodeType == NodeType.Text).Select(x => x.TextContent)).Trim(['[', ']', ' ']);

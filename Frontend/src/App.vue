@@ -24,13 +24,16 @@ const load = async () => {
 	error.value = null
 	try {
 		const [bossRes, graceRes] = await Promise.all([
-			fetch("/api/scrape/bosses", { method: "POST" }),
-			fetch("/api/scrape/graces", { method: "POST" }),
+			fetch("/api/checklist/bosses"),
+			fetch("/api/checklist/graces"),
 		])
+
 		if (!bossRes.ok || !graceRes.ok)
 			throw new Error("Failed to load data from the backend.")
+
 		const [bossData, graceData]: [Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[]] =
 			await Promise.all([bossRes.json(), graceRes.json()])
+
 		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"))
 		const mapCompleted = (x: Omit<ChecklistItem, "completed">) => ({ ...x, completed: completed.has(x.id) })
 		bosses.value = bossData.map(mapCompleted)
