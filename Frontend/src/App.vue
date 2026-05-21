@@ -57,11 +57,21 @@ const save = (): void => {
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(completed))
 }
 
-const bossCount = computed(() => bosses.value.filter(x => x.completed).length)
-const graceCount = computed(() => graces.value.filter(x => x.completed).length)
-const weaponCount = computed(() => weapons.value.filter(x => x.completed).length)
+const applyDlcFilter = (items: ChecklistItem[]) =>
+	dlcFilter.value === "dlc" ? items.filter(x => x.dlc) :
+	dlcFilter.value === "base" ? items.filter(x => !x.dlc) :
+	items
+
+const dlcFilterBosses = computed(() => applyDlcFilter(bosses.value))
+const dlcFilterGraces = computed(() => applyDlcFilter(graces.value))
+const dlcFilterWeapons = computed(() => applyDlcFilter(weapons.value))
+
+const bossCount = computed(() => dlcFilterBosses.value.filter(x => x.completed).length)
+const graceCount = computed(() => dlcFilterGraces.value.filter(x => x.completed).length)
+const weaponCount = computed(() => dlcFilterWeapons.value.filter(x => x.completed).length)
 
 type CompletionFilter = "all" | "completed" | "incomplete"
+type DlcFilter = "all" | "dlc" | "base"
 
 const nameFilter = ref("")
 
@@ -72,12 +82,21 @@ const completionOptions: { label: string; value: CompletionFilter }[] = [
 	{ label: "Incomplete", value: "incomplete" },
 ]
 
+const dlcFilter = ref<DlcFilter>("all")
+const dlcOptions: { label: string; value: DlcFilter }[] = [
+	{ label: "All", value: "all" },
+	{ label: "Base", value: "base" },
+	{ label: "DLC", value: "dlc" },
+]
+
 function matchesFilters(item: ChecklistItem): boolean {
 	if (nameFilter.value.trim()) {
 		const lower = item.name.toLowerCase()
 		if (!nameFilter.value.trim().toLowerCase().split(/\s+/).every(w => lower.includes(w)))
 			return false
 	}
+	if (dlcFilter.value === "dlc" && !item.dlc) return false
+	if (dlcFilter.value === "base" && item.dlc) return false
 	if (completionFilter.value === "completed") return item.completed
 	if (completionFilter.value === "incomplete") return !item.completed
 	return true
@@ -160,6 +179,8 @@ onMounted(load)
 				</IconField>
 			</template>
 			<template #end>
+				<SelectButton v-model="dlcFilter" :options="dlcOptions" option-label="label"
+					option-value="value" :allow-empty="false" style="margin-right: 1rem" />
 				<SelectButton v-model="completionFilter" :options="completionOptions" option-label="label"
 					option-value="value" :allow-empty="false" />
 			</template>
@@ -169,15 +190,15 @@ onMounted(load)
 			<TabList>
 				<Tab value="bosses">
 					Bosses
-					<Tag :value="`${bossCount} / ${bosses.length}`" severity="secondary" class="tab-count" />
+					<Tag :value="`${bossCount} / ${dlcFilterBosses.length}`" severity="secondary" class="tab-count" />
 				</Tab>
 				<Tab value="graces">
 					Graces
-					<Tag :value="`${graceCount} / ${graces.length}`" severity="secondary" class="tab-count" />
+					<Tag :value="`${graceCount} / ${dlcFilterGraces.length}`" severity="secondary" class="tab-count" />
 				</Tab>
 				<Tab value="weapons">
 					Weapons
-					<Tag :value="`${weaponCount} / ${weapons.length}`" severity="secondary" class="tab-count" />
+					<Tag :value="`${weaponCount} / ${dlcFilterWeapons.length}`" severity="secondary" class="tab-count" />
 				</Tab>
 			</TabList>
 		</Tabs>
