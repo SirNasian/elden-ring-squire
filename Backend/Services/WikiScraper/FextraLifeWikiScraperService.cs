@@ -17,7 +17,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	{
 		static Func<IElement, Boss> ConstructItem(string? area, bool dlc) => x => new()
 		{
-			Id = ConvertNameToId($"{area}-{x.TextContent}"),
+			Id = FormatToId($"{area}-{x.TextContent}"),
 			Name = x.TextContent,
 			Group = area ?? "",
 			Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
@@ -59,7 +59,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 
 		static Func<IElement, Grace> ConstructItem(string area, bool dlc) => x => new()
 		{
-			Id = ConvertNameToId(ExtractName(x)),
+			Id = $"{FormatToId(area)}:{FormatToId(ExtractName(x))}",
 			Name = ExtractName(x),
 			Group = area.Split('(')[0].Trim(),
 			Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
@@ -95,7 +95,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 
 		static Func<IElement, Weapon> ConstructItem(string header) => x => new()
 		{
-			Id = $"weapon:{ConvertNameToId(ExtractName(x))}",
+			Id = $"weapon:{FormatToId(ExtractName(x))}",
 			Name = ExtractName(x),
 			Group = header,
 			Url = $"{URL_ROOT}{GetAnchor(x)?.GetAttribute("href")}",
@@ -128,7 +128,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		return cache.Set(URL_WEAPONS, weapons, cacheExpiry);
 	}
 
-	private static string ConvertNameToId(string name) => name
+	private static string FormatToId(string name) => name
 		.ToLowerInvariant()
 		.Replace(" ", "-").Replace(",", "-").Replace(":", "-")
 		.Replace("'", "").Replace(".", "").Replace(" ", "")
