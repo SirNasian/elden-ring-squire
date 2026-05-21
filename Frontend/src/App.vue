@@ -16,6 +16,7 @@ const STORAGE_KEY = "elden-ring-squire-completed"
 
 const bosses = ref<ChecklistItem[]>([])
 const graces = ref<ChecklistItem[]>([])
+const weapons = ref<ChecklistItem[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -23,21 +24,23 @@ const load = async () => {
 	loading.value = true
 	error.value = null
 	try {
-		const [bossRes, graceRes] = await Promise.all([
+		const [bossRes, graceRes, weaponRes] = await Promise.all([
 			fetch("/api/checklist/bosses"),
 			fetch("/api/checklist/graces"),
+			fetch("/api/checklist/weapons"),
 		])
 
-		if (!bossRes.ok || !graceRes.ok)
+		if (!bossRes.ok || !graceRes.ok || !weaponRes.ok)
 			throw new Error("Failed to load data from the backend.")
 
-		const [bossData, graceData]: [Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[]] =
-			await Promise.all([bossRes.json(), graceRes.json()])
+		const [bossData, graceData, weaponData]: [Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[]] =
+			await Promise.all([bossRes.json(), graceRes.json(), weaponRes.json()])
 
 		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"))
 		const mapCompleted = (x: Omit<ChecklistItem, "completed">) => ({ ...x, completed: completed.has(x.id) })
 		bosses.value = bossData.map(mapCompleted)
 		graces.value = graceData.map(mapCompleted)
+		weapons.value = weaponData.map(mapCompleted)
 	} catch (e) {
 		error.value = e instanceof Error ? e.message : "An unexpected error occurred."
 	} finally {
@@ -49,12 +52,14 @@ const save = (): void => {
 	const completed = [
 		...bosses.value.filter(x => x.completed).map(x => x.id),
 		...graces.value.filter(x => x.completed).map(x => x.id),
+		...weapons.value.filter(x => x.completed).map(x => x.id),
 	]
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(completed))
 }
 
 const bossCount = computed(() => bosses.value.filter(x => x.completed).length)
 const graceCount = computed(() => graces.value.filter(x => x.completed).length)
+const weaponCount = computed(() => weapons.value.filter(x => x.completed).length)
 
 type CompletionFilter = "all" | "completed" | "incomplete"
 
@@ -80,20 +85,38 @@ function matchesFilters(item: ChecklistItem): boolean {
 
 const filteredBosses = computed(() => bosses.value.filter(matchesFilters))
 const filteredGraces = computed(() => graces.value.filter(matchesFilters))
+const filteredWeapons = computed(() => weapons.value.filter(matchesFilters))
 
-const activeTab = ref<"bosses" | "graces">("bosses")
+const activeTab = ref<"bosses" | "graces" | "weapons">("bosses")
 
-watch([filteredBosses, filteredGraces], () => {
-	const currentEmpty = activeTab.value === "bosses"
-		? filteredBosses.value.length === 0
-		: filteredGraces.value.length === 0
+watch([filteredBosses, filteredGraces, filteredWeapons], () => {
+	const currentEmpty =
+		activeTab.value === "bosses" ? filteredBosses.value.length === 0 :
+		activeTab.value === "graces" ? filteredGraces.value.length === 0 :
+		filteredWeapons.value.length === 0
 	if (!currentEmpty) return
-	if (activeTab.value === "bosses" && filteredGraces.value.length > 0) activeTab.value = "graces"
-	else if (activeTab.value === "graces" && filteredBosses.value.length > 0) activeTab.value = "bosses"
+
+	if (filteredBosses.value.length > 0) activeTab.value = "bosses"
+	else if (filteredGraces.value.length > 0) activeTab.value = "graces"
+	else if (filteredWeapons.value.length > 0) activeTab.value = "weapons"
 })
 
 const activeItems = computed(() =>
-	activeTab.value === "bosses" ? filteredBosses.value : filteredGraces.value
+	activeTab.value === "bosses" ? filteredBosses.value :
+	activeTab.value === "graces" ? filteredGraces.value :
+	filteredWeapons.value
+)
+
+const groupCaption = computed(() =>
+	activeTab.value === "bosses" ? "Location" :
+	activeTab.value === "graces" ? "Area" :
+	"Type"
+)
+
+const completedCaption = computed(() =>
+	activeTab.value === "bosses" ? ["Alive", "Defeated"] :
+	activeTab.value === "graces" ? ["Not Found", "Found"] :
+	["Not Obtained", "Obtained"]
 )
 
 const scrollRef = ref<HTMLElement | null>(null)
@@ -149,8 +172,12 @@ onMounted(load)
 					<Tag :value="`${bossCount} / ${bosses.length}`" severity="secondary" class="tab-count" />
 				</Tab>
 				<Tab value="graces">
-					Sites of Grace
+					Graces
 					<Tag :value="`${graceCount} / ${graces.length}`" severity="secondary" class="tab-count" />
+				</Tab>
+				<Tab value="weapons">
+					Weapons
+					<Tag :value="`${weaponCount} / ${weapons.length}`" severity="secondary" class="tab-count" />
 				</Tab>
 			</TabList>
 		</Tabs>
@@ -158,7 +185,7 @@ onMounted(load)
 		<div class="table-header table-grid">
 			<div></div>
 			<div>Name</div>
-			<div>{{ activeTab === "bosses" ? "Location" : "Area" }}</div>
+			<div>{{ groupCaption }}</div>
 			<div></div>
 			<div></div>
 		</div>
@@ -177,7 +204,7 @@ onMounted(load)
 					<div class="cell">
 						<a v-if="row.item.url" :href="row.item.url" target="_blank" rel="noopener noreferrer">{{
 							row.item.name
-						}}</a>
+							}}</a>
 						<span v-else>{{ row.item.name }}</span>
 					</div>
 					<div class="cell">{{ row.item.group }}</div>
@@ -185,7 +212,7 @@ onMounted(load)
 						<Tag v-if="row.item.dlc" value="DLC" severity="warn" />
 					</div>
 					<div class="cell">
-						<Tag :value="row.item.completed ? (activeTab === 'bosses' ? 'Defeated' : 'Found') : (activeTab === 'bosses' ? 'Alive' : 'Not Found')"
+						<Tag :value="completedCaption[row.item.completed ? 1 : 0]"
 							:severity="row.item.completed ? 'success' : 'danger'" />
 					</div>
 				</div>
@@ -287,6 +314,12 @@ body {
 
 .cell {
 	padding: 0 0.25rem;
+}
+
+.table-grid > :nth-child(4),
+.table-grid > :nth-child(5) {
+	display: flex;
+	justify-content: center;
 }
 
 .table-empty {

@@ -14,4 +14,8 @@ public class ChecklistController(IChecklistDataService checklist) : ControllerBa
 	[HttpGet("graces")]
 	public async Task<IActionResult> GetGraces(CancellationToken ct) =>
 		Ok(await checklist.GetGraces(ct));
+
+	[HttpGet("weapons")]
+	public async Task<IActionResult> GetWeapons(CancellationToken ct) =>
+		Ok(await checklist.GetWeapons(ct));
 }

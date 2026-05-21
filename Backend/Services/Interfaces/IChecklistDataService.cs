@@ -6,4 +6,5 @@ public interface IChecklistDataService
 {
 	public Task<IList<Boss>> GetBosses(CancellationToken ct = default);
 	public Task<IList<Grace>> GetGraces(CancellationToken ct = default);
+	public Task<IList<Weapon>> GetWeapons(CancellationToken ct = default);
 }

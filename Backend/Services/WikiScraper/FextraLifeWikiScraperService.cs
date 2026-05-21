@@ -8,9 +8,10 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 {
 	private static readonly TimeSpan cacheExpiry = TimeSpan.FromHours(1);
 
-	private const string URL_ROOT   = "https://eldenring.wiki.fextralife.com";
-	private const string URL_BOSSES = "https://eldenring.wiki.fextralife.com/Bosses";
-	private const string URL_GRACES = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
+	private const string URL_ROOT    = "https://eldenring.wiki.fextralife.com";
+	private const string URL_BOSSES  = "https://eldenring.wiki.fextralife.com/Bosses";
+	private const string URL_GRACES  = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
+	private const string URL_WEAPONS = "https://eldenring.wiki.fextralife.com/Weapons";
 
 	public override async Task<IList<Boss>> GetBosses(CancellationToken ct = default)
 	{
@@ -85,6 +86,46 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 
 		graces = [.. graces.OrderBy(x => x.Dlc)];
 		return cache.Set(URL_GRACES, graces, cacheExpiry);
+	}
+
+	public override async Task<IList<Weapon>> GetWeapons(CancellationToken ct = default)
+	{
+		static IElement? GetAnchor(IElement x) => x.QuerySelector("p a");
+		static string ExtractName(IElement x) => GetAnchor(x)?.GetAttribute("title")?[10..].Trim() ?? "";
+
+		static Func<IElement, Weapon> ConstructItem(string header) => x => new()
+		{
+			Id = $"weapon:{ConvertNameToId(ExtractName(x))}",
+			Name = ExtractName(x),
+			Group = header,
+			Url = $"{URL_ROOT}{GetAnchor(x)?.GetAttribute("href")}",
+			Dlc = x.QuerySelector("img[title=\"sote-new\"]") is not null,
+		};
+
+		if (cache.TryGetValue(URL_WEAPONS, out List<Weapon>? weapons))
+			if (weapons is not null)
+				return weapons;
+
+		weapons = [];
+		var document = await GetParsedDocumentAsync(URL_WEAPONS, ct);
+		foreach (var header in document.QuerySelectorAll("#wiki-content-block h3[style=\"text-align: center;\"]"))
+		{
+			var row = header.NextElementSibling;
+			while (row is not null && row.ClassList.Contains("row"))
+			{
+				weapons.AddRange(
+					row
+						.QuerySelectorAll("div.col-xs-6.col-sm-2")
+						.Where(x => GetAnchor(x) is not null)
+						.Select(ConstructItem(header.TextContent))
+					?? []
+				);
+				row = row.NextElementSibling;
+			}
+		}
+
+		weapons = [.. weapons.OrderBy(x => x.Group).ThenBy(x => x.Name)];
+		return cache.Set(URL_WEAPONS, weapons, cacheExpiry);
 	}
 
 	private static string ConvertNameToId(string name) => name
