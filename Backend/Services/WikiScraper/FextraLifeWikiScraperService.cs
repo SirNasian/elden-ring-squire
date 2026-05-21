@@ -1,18 +1,19 @@
 using AngleSharp.Dom;
 using EldenRingSquire.Backend.Models.Checklist;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace EldenRingSquire.Backend.Services.WikiScraper;
 
-public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperService(http)
+public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) : BaseWikiScraperService(http)
 {
+	private static readonly TimeSpan cacheExpiry = TimeSpan.FromHours(1);
+
 	private const string URL_ROOT   = "https://eldenring.wiki.fextralife.com";
 	private const string URL_BOSSES = "https://eldenring.wiki.fextralife.com/Bosses";
 	private const string URL_GRACES = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
 
 	public override async Task<IList<Boss>> ScrapeBosses(CancellationToken ct = default)
 	{
-		var bosses = new List<Boss>();
-
 		static Func<IElement, Boss> ConstructItem(string? area, bool dlc) => x => new()
 		{
 			Id = ConvertNameToId($"{area}-{x.TextContent}"),
@@ -22,6 +23,11 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 			Dlc = dlc,
 		};
 
+		if (cache.TryGetValue(URL_BOSSES, out List<Boss>? bosses))
+			if (bosses is not null)
+				return bosses;
+
+		bosses = [];
 		var document = await GetParsedDocumentAsync(URL_BOSSES, ct);
 		var tabContent = document.QuerySelector("div .tabcontent.tutorial-tab");
 		if (tabContent is not null)
@@ -41,7 +47,8 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 							);
 					}
 
-		return [.. bosses.OrderBy(x => x.Dlc)];
+		bosses = [.. bosses.OrderBy(x => x.Dlc)];
+		return cache.Set(URL_BOSSES, bosses, cacheExpiry);
 	}
 
 	public override async Task<IList<Grace>> ScrapeGraces(CancellationToken ct = default)
@@ -58,7 +65,11 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 			Dlc = dlc,
 		};
 
-		var graces = new List<Grace>();
+		if (cache.TryGetValue(URL_GRACES, out List<Grace>? graces))
+			if (graces is not null)
+				return graces;
+
+		graces = [];
 		var document = await GetParsedDocumentAsync(URL_GRACES, ct);
 		foreach (var tabContent in document.QuerySelectorAll("div .tabcontent"))
 			foreach (var sectionRow in tabContent.QuerySelectorAll("div .row"))
@@ -72,7 +83,8 @@ public class FextraLifeWikiScraperService(HttpClient http) : BaseWikiScraperServ
 							?? []
 						);
 
-		return [.. graces.OrderBy(x => x.Dlc)];
+		graces = [.. graces.OrderBy(x => x.Dlc)];
+		return cache.Set(URL_GRACES, graces, cacheExpiry);
 	}
 
 	private static string ConvertNameToId(string name) => name
