@@ -152,7 +152,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		static string ExtractName(IElement x) =>
 			x.GetAttribute("title")?[10..].Trim() ?? "";
 
-		if (cache.TryGetValue(URL_WEAPONS, out List<ChecklistItem>? shields))
+		if (cache.TryGetValue(URL_SHIELDS, out List<ChecklistItem>? shields))
 			if (shields is not null)
 				return shields;
 
