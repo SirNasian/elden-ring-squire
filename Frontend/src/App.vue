@@ -2,6 +2,13 @@
 import { ref, computed, watch, onMounted } from "vue"
 import { useVirtualizer } from "@tanstack/vue-virtual"
 
+interface ChecklistCategory {
+	id: string
+	label: string
+	groupCaption: string
+	statusLabels: [string, string]
+}
+
 interface ChecklistItem {
 	id: string
 	name: string
@@ -12,38 +19,35 @@ interface ChecklistItem {
 	completed: boolean
 }
 
+interface ChecklistResponse {
+	categories: ChecklistCategory[]
+	items: Omit<ChecklistItem, "completed">[]
+}
+
 const STORAGE_KEY = "elden-ring-squire-completed"
 
-const bosses = ref<ChecklistItem[]>([])
-const graces = ref<ChecklistItem[]>([])
-const weapons = ref<ChecklistItem[]>([])
-const shields = ref<ChecklistItem[]>([])
+const categories = ref<ChecklistCategory[]>([])
+const items = ref<ChecklistItem[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+const activeTab = ref("")
 
 const load = async () => {
 	loading.value = true
 	error.value = null
 	try {
-		const [bossRes, graceRes, weaponRes, shieldRes] = await Promise.all([
-			fetch("/api/checklist/bosses"),
-			fetch("/api/checklist/graces"),
-			fetch("/api/checklist/weapons"),
-			fetch("/api/checklist/shields"),
-		])
+		const res = await fetch("/api/checklist")
+		if (!res.ok) throw new Error("Failed to load data from the backend.")
 
-		if (!bossRes.ok || !graceRes.ok || !weaponRes.ok || !shieldRes.ok)
-			throw new Error("Failed to load data from the backend.")
-
-		const [bossData, graceData, weaponData, shieldData]: [Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[]] =
-			await Promise.all([bossRes.json(), graceRes.json(), weaponRes.json(), shieldRes.json()])
-
+		const data: ChecklistResponse = await res.json()
 		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"))
-		const mapCompleted = (x: Omit<ChecklistItem, "completed">) => ({ ...x, completed: completed.has(x.id) })
-		bosses.value = bossData.map(mapCompleted)
-		graces.value = graceData.map(mapCompleted)
-		weapons.value = weaponData.map(mapCompleted)
-		shields.value = shieldData.map(mapCompleted)
+
+		categories.value = data.categories
+		items.value = data.items.map(x => ({ ...x, completed: completed.has(x.id) }))
+
+		if (!activeTab.value || !categories.value.some(c => c.id === activeTab.value))
+			activeTab.value = categories.value[0]?.id ?? ""
 	} catch (e) {
 		error.value = e instanceof Error ? e.message : "An unexpected error occurred."
 	} finally {
@@ -52,29 +56,9 @@ const load = async () => {
 }
 
 const save = (): void => {
-	const completed = [
-		...bosses.value.filter(x => x.completed).map(x => x.id),
-		...graces.value.filter(x => x.completed).map(x => x.id),
-		...weapons.value.filter(x => x.completed).map(x => x.id),
-		...shields.value.filter(x => x.completed).map(x => x.id),
-	]
+	const completed = items.value.filter(x => x.completed).map(x => x.id)
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(completed))
 }
-
-const applyDlcFilter = (items: ChecklistItem[]) =>
-	dlcFilter.value === "dlc" ? items.filter(x => x.dlc) :
-	dlcFilter.value === "base" ? items.filter(x => !x.dlc) :
-	items
-
-const dlcFilterBosses = computed(() => applyDlcFilter(bosses.value))
-const dlcFilterGraces = computed(() => applyDlcFilter(graces.value))
-const dlcFilterWeapons = computed(() => applyDlcFilter(weapons.value))
-const dlcFilterShields = computed(() => applyDlcFilter(shields.value))
-
-const bossCount = computed(() => dlcFilterBosses.value.filter(x => x.completed).length)
-const graceCount = computed(() => dlcFilterGraces.value.filter(x => x.completed).length)
-const weaponCount = computed(() => dlcFilterWeapons.value.filter(x => x.completed).length)
-const shieldCount = computed(() => dlcFilterShields.value.filter(x => x.completed).length)
 
 type CompletionFilter = "all" | "completed" | "incomplete"
 type DlcFilter = "all" | "dlc" | "base"
@@ -108,45 +92,34 @@ function matchesFilters(item: ChecklistItem): boolean {
 	return true
 }
 
-const filteredBosses = computed(() => bosses.value.filter(matchesFilters))
-const filteredGraces = computed(() => graces.value.filter(matchesFilters))
-const filteredWeapons = computed(() => weapons.value.filter(matchesFilters))
-const filteredShields = computed(() => shields.value.filter(matchesFilters))
+const filteredItems = computed(() => items.value.filter(matchesFilters))
 
-const activeTab = ref<"bosses" | "graces" | "weapons" | "shields">("bosses")
-
-watch([filteredBosses, filteredGraces, filteredWeapons, filteredShields], () => {
-	const currentEmpty =
-		activeTab.value === "bosses" ? filteredBosses.value.length === 0 :
-		activeTab.value === "graces" ? filteredGraces.value.length === 0 :
-		activeTab.value === "weapons" ? filteredWeapons.value.length === 0 :
-		filteredShields.value.length === 0
-	if (!currentEmpty) return
-
-	if (filteredBosses.value.length > 0) activeTab.value = "bosses"
-	else if (filteredGraces.value.length > 0) activeTab.value = "graces"
-	else if (filteredWeapons.value.length > 0) activeTab.value = "weapons"
-	else if (filteredShields.value.length > 0) activeTab.value = "shields"
+const categoryCounts = computed(() => {
+	const counts: Record<string, { completed: number; total: number }> = {}
+	for (const cat of categories.value) {
+		let catItems = items.value.filter(x => x.category === cat.id)
+		if (dlcFilter.value === "dlc") catItems = catItems.filter(x => x.dlc)
+		else if (dlcFilter.value === "base") catItems = catItems.filter(x => !x.dlc)
+		counts[cat.id] = {
+			completed: catItems.filter(x => x.completed).length,
+			total: catItems.length,
+		}
+	}
+	return counts
 })
 
-const activeItems = computed(() =>
-	activeTab.value === "bosses" ? filteredBosses.value :
-	activeTab.value === "graces" ? filteredGraces.value :
-	activeTab.value === "weapons" ? filteredWeapons.value :
-	filteredShields.value
-)
+watch(filteredItems, () => {
+	const hasItems = filteredItems.value.some(x => x.category === activeTab.value)
+	if (hasItems) return
+	const first = categories.value.find(c => filteredItems.value.some(x => x.category === c.id))
+	if (first) activeTab.value = first.id
+})
 
-const groupCaption = computed(() =>
-	activeTab.value === "bosses" ? "Location" :
-	activeTab.value === "graces" ? "Area" :
-	"Type"
-)
+const activeConfig = computed(() => categories.value.find(c => c.id === activeTab.value))
+const groupCaption = computed(() => activeConfig.value?.groupCaption ?? "")
+const completedCaption = computed(() => activeConfig.value?.statusLabels ?? ["", ""] as [string, string])
 
-const completedCaption = computed(() =>
-	activeTab.value === "bosses" ? ["Alive", "Defeated"] :
-	activeTab.value === "graces" ? ["Not Found", "Found"] :
-	["Not Obtained", "Obtained"]
-)
+const activeItems = computed(() => filteredItems.value.filter(x => x.category === activeTab.value))
 
 const scrollRef = ref<HTMLElement | null>(null)
 
@@ -205,21 +178,10 @@ onMounted(load)
 
 		<Tabs v-model:value="activeTab">
 			<TabList>
-				<Tab value="bosses">
-					Bosses
-					<Tag :value="`${bossCount} / ${dlcFilterBosses.length}`" severity="secondary" class="tab-count" />
-				</Tab>
-				<Tab value="graces">
-					Graces
-					<Tag :value="`${graceCount} / ${dlcFilterGraces.length}`" severity="secondary" class="tab-count" />
-				</Tab>
-				<Tab value="weapons">
-					Weapons
-					<Tag :value="`${weaponCount} / ${dlcFilterWeapons.length}`" severity="secondary" class="tab-count" />
-				</Tab>
-				<Tab value="shields">
-					Shields
-					<Tag :value="`${shieldCount} / ${dlcFilterShields.length}`" severity="secondary" class="tab-count" />
+				<Tab v-for="cat in categories" :key="cat.id" :value="cat.id">
+					{{ cat.label }}
+					<Tag :value="`${categoryCounts[cat.id]?.completed ?? 0} / ${categoryCounts[cat.id]?.total ?? 0}`"
+						severity="secondary" class="tab-count" />
 				</Tab>
 			</TabList>
 		</Tabs>

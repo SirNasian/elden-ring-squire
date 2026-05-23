@@ -7,10 +7,8 @@ namespace EldenRingSquire.Backend.Services.WikiScraper;
 
 public abstract class BaseWikiScraperService(HttpClient httpClient) : IChecklistDataService
 {
-	public abstract Task<IList<Boss>> GetBosses(CancellationToken ct = default);
-	public abstract Task<IList<Grace>> GetGraces(CancellationToken ct = default);
-	public abstract Task<IList<Weapon>> GetWeapons(CancellationToken ct = default);
-	public abstract Task<IList<Shield>> GetShields(CancellationToken ct = default);
+	public abstract Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default);
+	public abstract Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default);
 
 	protected async Task<IDocument> GetParsedDocumentAsync(string url, CancellationToken cancellationToken = default)
 	{

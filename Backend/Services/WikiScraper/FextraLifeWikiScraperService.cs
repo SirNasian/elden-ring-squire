@@ -14,22 +14,34 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_WEAPONS = "https://eldenring.wiki.fextralife.com/Weapons";
 	private const string URL_SHIELDS = "https://eldenring.wiki.fextralife.com/Shields";
 
-	public override async Task<IList<Boss>> GetBosses(CancellationToken ct = default)
+	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
+	[
+		new() { Id = "bosses",  Label = "Bosses",  GroupCaption = "Location", StatusLabels = ["Alive",       "Defeated"] },
+		new() { Id = "graces",  Label = "Graces",  GroupCaption = "Area",     StatusLabels = ["Not Found",   "Found"] },
+		new() { Id = "weapons", Label = "Weapons", GroupCaption = "Type",     StatusLabels = ["Not Obtained","Obtained"] },
+		new() { Id = "shields", Label = "Shields", GroupCaption = "Type",     StatusLabels = ["Not Obtained","Obtained"] }
+	];
+
+	public override async Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default) =>
+		[.. (await Task.WhenAll(GetBosses(ct), GetGraces(ct), GetWeapons(ct), GetShields(ct))).SelectMany(x => x)];
+
+	public async Task<IList<ChecklistItem>> GetBosses(CancellationToken ct = default)
 	{
-		static Func<IElement, Boss> ConstructItem(string? area, bool dlc) => x => new()
+		static Func<IElement, ChecklistItem> ConstructItem(string? area, bool dlc) => x => new()
 		{
-			Id = FormatToId($"{area}-{x.TextContent}"),
+			Id = $"boss:{FormatToId($"{area}-{x.TextContent}")}",
+			Category = "bosses",
 			Name = x.TextContent,
 			Group = area ?? "",
 			Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
 			Dlc = dlc,
 		};
 
-		if (cache.TryGetValue(URL_BOSSES, out List<Boss>? bosses))
-			if (bosses is not null)
-				return bosses;
+		if (cache.TryGetValue(URL_BOSSES, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
 
-		bosses = [];
+		items = [];
 		var document = await GetParsedDocumentAsync(URL_BOSSES, ct);
 		var tabContent = document.QuerySelector("div .tabcontent.tutorial-tab");
 		if (tabContent is not null)
@@ -41,7 +53,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 						var dlc = item?.TagName.Equals(TagNames.P, StringComparison.OrdinalIgnoreCase) ?? false;
 						if (dlc) item = item?.NextElementSibling;
 						if (item is not null)
-							bosses.AddRange(
+							items.AddRange(
 								item
 									.QuerySelectorAll("li")
 									.Select(ConstructItem(heading.QuerySelector("a")?.TextContent, dlc))
@@ -49,25 +61,26 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 							);
 					}
 
-		bosses = [.. bosses.OrderBy(x => x.Dlc)];
-		return cache.Set(URL_BOSSES, bosses, cacheExpiry);
+		items = [.. items.OrderBy(x => x.Dlc)];
+		return cache.Set(URL_BOSSES, items, cacheExpiry);
 	}
 
-	public override async Task<IList<Grace>> GetGraces(CancellationToken ct = default)
+	public async Task<IList<ChecklistItem>> GetGraces(CancellationToken ct = default)
 	{
 		static string ExtractName(IElement x) =>
 			string.Concat(x.ChildNodes.Where(x => x.NodeType == NodeType.Text).Select(x => x.TextContent)).Trim(['[', ']', ' ']);
 
-		static Func<IElement, Grace> ConstructItem(string area, bool dlc) => x => new()
+		static Func<IElement, ChecklistItem> ConstructItem(string area, bool dlc) => x => new()
 		{
 			Id = $"{FormatToId(area)}:{FormatToId(ExtractName(x))}",
+			Category = "graces",
 			Name = ExtractName(x),
 			Group = area.Split('(')[0].Trim(),
 			Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
 			Dlc = dlc,
 		};
 
-		if (cache.TryGetValue(URL_GRACES, out List<Grace>? graces))
+		if (cache.TryGetValue(URL_GRACES, out List<ChecklistItem>? graces))
 			if (graces is not null)
 				return graces;
 
@@ -89,32 +102,33 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		return cache.Set(URL_GRACES, graces, cacheExpiry);
 	}
 
-	public override async Task<IList<Weapon>> GetWeapons(CancellationToken ct = default)
+	public async Task<IList<ChecklistItem>> GetWeapons(CancellationToken ct = default)
 	{
 		static IElement? GetAnchor(IElement x) => x.QuerySelector("p a");
 		static string ExtractName(IElement x) => GetAnchor(x)?.GetAttribute("title")?[10..].Trim() ?? "";
 
-		static Func<IElement, Weapon> ConstructItem(string header) => x => new()
+		static Func<IElement, ChecklistItem> ConstructItem(string header) => x => new()
 		{
 			Id = $"weapon:{FormatToId(ExtractName(x))}",
+			Category = "weapons",
 			Name = ExtractName(x),
 			Group = header,
 			Url = $"{URL_ROOT}{GetAnchor(x)?.GetAttribute("href")}",
 			Dlc = x.QuerySelector("img[title=\"sote-new\"]") is not null,
 		};
 
-		if (cache.TryGetValue(URL_WEAPONS, out List<Weapon>? weapons))
-			if (weapons is not null)
-				return weapons;
+		if (cache.TryGetValue(URL_WEAPONS, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
 
-		weapons = [];
+		items = [];
 		var document = await GetParsedDocumentAsync(URL_WEAPONS, ct);
 		foreach (var header in document.QuerySelectorAll("#wiki-content-block h3[style=\"text-align: center;\"]"))
 		{
 			var row = header.NextElementSibling;
 			while (row is not null && row.ClassList.Contains("row"))
 			{
-				weapons.AddRange(
+				items.AddRange(
 					row
 						.QuerySelectorAll("div.col-xs-6.col-sm-2")
 						.Where(x => GetAnchor(x) is not null)
@@ -125,11 +139,11 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 			}
 		}
 
-		weapons = [.. weapons.OrderBy(x => x.Group).ThenBy(x => x.Name)];
-		return cache.Set(URL_WEAPONS, weapons, cacheExpiry);
+		items = [.. items.OrderBy(x => x.Group).ThenBy(x => x.Name)];
+		return cache.Set(URL_WEAPONS, items, cacheExpiry);
 	}
 
-	public override async Task<IList<Shield>> GetShields(CancellationToken ct = default)
+	public async Task<IList<ChecklistItem>> GetShields(CancellationToken ct = default)
 	{
 		static IElement? GetRowHeader(IElement? x) =>
 			(x is null || x.TagName.Equals(TagNames.H3, StringComparison.OrdinalIgnoreCase))
@@ -138,7 +152,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		static string ExtractName(IElement x) =>
 			x.GetAttribute("title")?[10..].Trim() ?? "";
 
-		if (cache.TryGetValue(URL_WEAPONS, out List<Shield>? shields))
+		if (cache.TryGetValue(URL_WEAPONS, out List<ChecklistItem>? shields))
 			if (shields is not null)
 				return shields;
 
@@ -151,7 +165,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 				if (x is not null)
 					shields.Add(new()
 					{
-						Id = $"shield:{FormatToId(ExtractName(x))}",
+						Id = $"ChecklistItem:{FormatToId(ExtractName(x))}",
+						Category = "shields",
 						Name = ExtractName(x),
 						Group = GetRowHeader(row)?.TextContent ?? "",
 						Url = $"{URL_ROOT}{x.GetAttribute("href")}",
