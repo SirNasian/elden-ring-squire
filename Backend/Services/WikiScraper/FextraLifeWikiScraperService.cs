@@ -16,6 +16,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_SPIRIT_ASHES = "https://eldenring.wiki.fextralife.com/Spirit+Ashes";
 	private const string URL_SORCERIES    = "https://eldenring.wiki.fextralife.com/Sorceries";
 	private const string URL_INCANTATIONS = "https://eldenring.wiki.fextralife.com/Incantations";
+	private const string URL_TALISMANS    = "https://eldenring.wiki.fextralife.com/Talismans";
 
 	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
 	[
@@ -26,6 +27,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		new() { Id = "spirit-ashes", Label = "Spirit Ashes", GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "sorceries",    Label = "Sorceries",    GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
 		new() { Id = "incantations", Label = "Incantations", GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
+		new() { Id = "talismans",    Label = "Talismans",    GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 	];
 
 	public override async Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default) =>
@@ -37,7 +39,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 				GetShields(ct),
 				GetSpiritAshes(ct),
 				GetSorceries(ct),
-				GetIncantations(ct)
+				GetIncantations(ct),
+				GetTalismans(ct)
 			)).SelectMany(x => x)
 		];
 
@@ -283,5 +286,34 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 			);
 
 		return cache.Set(URL_INCANTATIONS, items, cacheDuration);
+	}
+
+	private async Task<IList<ChecklistItem>> GetTalismans(CancellationToken ct = default)
+	{
+		static string ExtractName(IElement x) =>
+			x.QuerySelector("a")?.GetAttribute("title")?[10..].Trim() ?? "";
+
+		if (cache.TryGetValue(URL_TALISMANS, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
+
+		items = [];
+		var document = await GetParsedDocumentAsync(URL_TALISMANS, ct);
+		foreach (var row in document.QuerySelectorAll("div.tabcontent.\\30-tab h3 ~ div.row.gallery"))
+			items.AddRange(
+				row
+					.QuerySelectorAll("div.col-xs-6.col-sm-3")
+					.Select(x => new ChecklistItem
+					{
+						Id = $"talisman:{FormatId(ExtractName(x))}",
+						Category = "talismans",
+						Name = ExtractName(x),
+						Group = "",
+						Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
+						Dlc = x.QuerySelector("img[title=\"sote-new\"]") is not null,
+					})
+			);
+
+		return cache.Set(URL_TALISMANS, items, cacheDuration);
 	}
 }
