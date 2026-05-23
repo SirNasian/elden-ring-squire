@@ -10,6 +10,7 @@ public abstract class BaseWikiScraperService(HttpClient httpClient) : IChecklist
 	public abstract Task<IList<Boss>> GetBosses(CancellationToken ct = default);
 	public abstract Task<IList<Grace>> GetGraces(CancellationToken ct = default);
 	public abstract Task<IList<Weapon>> GetWeapons(CancellationToken ct = default);
+	public abstract Task<IList<Shield>> GetShields(CancellationToken ct = default);
 
 	protected async Task<IDocument> GetParsedDocumentAsync(string url, CancellationToken cancellationToken = default)
 	{

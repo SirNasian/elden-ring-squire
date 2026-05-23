@@ -17,6 +17,7 @@ const STORAGE_KEY = "elden-ring-squire-completed"
 const bosses = ref<ChecklistItem[]>([])
 const graces = ref<ChecklistItem[]>([])
 const weapons = ref<ChecklistItem[]>([])
+const shields = ref<ChecklistItem[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -24,23 +25,25 @@ const load = async () => {
 	loading.value = true
 	error.value = null
 	try {
-		const [bossRes, graceRes, weaponRes] = await Promise.all([
+		const [bossRes, graceRes, weaponRes, shieldRes] = await Promise.all([
 			fetch("/api/checklist/bosses"),
 			fetch("/api/checklist/graces"),
 			fetch("/api/checklist/weapons"),
+			fetch("/api/checklist/shields"),
 		])
 
-		if (!bossRes.ok || !graceRes.ok || !weaponRes.ok)
+		if (!bossRes.ok || !graceRes.ok || !weaponRes.ok || !shieldRes.ok)
 			throw new Error("Failed to load data from the backend.")
 
-		const [bossData, graceData, weaponData]: [Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[]] =
-			await Promise.all([bossRes.json(), graceRes.json(), weaponRes.json()])
+		const [bossData, graceData, weaponData, shieldData]: [Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[], Omit<ChecklistItem, "completed">[]] =
+			await Promise.all([bossRes.json(), graceRes.json(), weaponRes.json(), shieldRes.json()])
 
 		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"))
 		const mapCompleted = (x: Omit<ChecklistItem, "completed">) => ({ ...x, completed: completed.has(x.id) })
 		bosses.value = bossData.map(mapCompleted)
 		graces.value = graceData.map(mapCompleted)
 		weapons.value = weaponData.map(mapCompleted)
+		shields.value = shieldData.map(mapCompleted)
 	} catch (e) {
 		error.value = e instanceof Error ? e.message : "An unexpected error occurred."
 	} finally {
@@ -53,6 +56,7 @@ const save = (): void => {
 		...bosses.value.filter(x => x.completed).map(x => x.id),
 		...graces.value.filter(x => x.completed).map(x => x.id),
 		...weapons.value.filter(x => x.completed).map(x => x.id),
+		...shields.value.filter(x => x.completed).map(x => x.id),
 	]
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(completed))
 }
@@ -65,10 +69,12 @@ const applyDlcFilter = (items: ChecklistItem[]) =>
 const dlcFilterBosses = computed(() => applyDlcFilter(bosses.value))
 const dlcFilterGraces = computed(() => applyDlcFilter(graces.value))
 const dlcFilterWeapons = computed(() => applyDlcFilter(weapons.value))
+const dlcFilterShields = computed(() => applyDlcFilter(shields.value))
 
 const bossCount = computed(() => dlcFilterBosses.value.filter(x => x.completed).length)
 const graceCount = computed(() => dlcFilterGraces.value.filter(x => x.completed).length)
 const weaponCount = computed(() => dlcFilterWeapons.value.filter(x => x.completed).length)
+const shieldCount = computed(() => dlcFilterShields.value.filter(x => x.completed).length)
 
 type CompletionFilter = "all" | "completed" | "incomplete"
 type DlcFilter = "all" | "dlc" | "base"
@@ -105,25 +111,29 @@ function matchesFilters(item: ChecklistItem): boolean {
 const filteredBosses = computed(() => bosses.value.filter(matchesFilters))
 const filteredGraces = computed(() => graces.value.filter(matchesFilters))
 const filteredWeapons = computed(() => weapons.value.filter(matchesFilters))
+const filteredShields = computed(() => shields.value.filter(matchesFilters))
 
-const activeTab = ref<"bosses" | "graces" | "weapons">("bosses")
+const activeTab = ref<"bosses" | "graces" | "weapons" | "shields">("bosses")
 
-watch([filteredBosses, filteredGraces, filteredWeapons], () => {
+watch([filteredBosses, filteredGraces, filteredWeapons, filteredShields], () => {
 	const currentEmpty =
 		activeTab.value === "bosses" ? filteredBosses.value.length === 0 :
 		activeTab.value === "graces" ? filteredGraces.value.length === 0 :
-		filteredWeapons.value.length === 0
+		activeTab.value === "weapons" ? filteredWeapons.value.length === 0 :
+		filteredShields.value.length === 0
 	if (!currentEmpty) return
 
 	if (filteredBosses.value.length > 0) activeTab.value = "bosses"
 	else if (filteredGraces.value.length > 0) activeTab.value = "graces"
 	else if (filteredWeapons.value.length > 0) activeTab.value = "weapons"
+	else if (filteredShields.value.length > 0) activeTab.value = "shields"
 })
 
 const activeItems = computed(() =>
 	activeTab.value === "bosses" ? filteredBosses.value :
 	activeTab.value === "graces" ? filteredGraces.value :
-	filteredWeapons.value
+	activeTab.value === "weapons" ? filteredWeapons.value :
+	filteredShields.value
 )
 
 const groupCaption = computed(() =>
@@ -206,6 +216,10 @@ onMounted(load)
 				<Tab value="weapons">
 					Weapons
 					<Tag :value="`${weaponCount} / ${dlcFilterWeapons.length}`" severity="secondary" class="tab-count" />
+				</Tab>
+				<Tab value="shields">
+					Shields
+					<Tag :value="`${shieldCount} / ${dlcFilterShields.length}`" severity="secondary" class="tab-count" />
 				</Tab>
 			</TabList>
 		</Tabs>

@@ -12,6 +12,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_BOSSES  = "https://eldenring.wiki.fextralife.com/Bosses";
 	private const string URL_GRACES  = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
 	private const string URL_WEAPONS = "https://eldenring.wiki.fextralife.com/Weapons";
+	private const string URL_SHIELDS = "https://eldenring.wiki.fextralife.com/Shields";
 
 	public override async Task<IList<Boss>> GetBosses(CancellationToken ct = default)
 	{
@@ -126,6 +127,39 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 
 		weapons = [.. weapons.OrderBy(x => x.Group).ThenBy(x => x.Name)];
 		return cache.Set(URL_WEAPONS, weapons, cacheExpiry);
+	}
+
+	public override async Task<IList<Shield>> GetShields(CancellationToken ct = default)
+	{
+		static IElement? GetRowHeader(IElement? x) =>
+			(x is null || x.TagName.Equals(TagNames.H3, StringComparison.OrdinalIgnoreCase))
+				? x : GetRowHeader(x.PreviousElementSibling);
+
+		static string ExtractName(IElement x) =>
+			x.GetAttribute("title")?[10..].Trim() ?? "";
+
+		if (cache.TryGetValue(URL_WEAPONS, out List<Shield>? shields))
+			if (shields is not null)
+				return shields;
+
+		shields = [];
+		var document = await GetParsedDocumentAsync(URL_SHIELDS, ct);
+		foreach (var row in document.QuerySelectorAll("#wiki-content-block > h3 ~ div[class=\"row\"]"))
+			foreach (var column in row.QuerySelectorAll("div[class=\"col-xs-6 col-sm-2\"]"))
+			{
+				var x = column.QuerySelector("a[class=\"wiki_link wiki_tooltip\"]");
+				if (x is not null)
+					shields.Add(new()
+					{
+						Id = $"shield:{FormatToId(ExtractName(x))}",
+						Name = ExtractName(x),
+						Group = GetRowHeader(row)?.TextContent ?? "",
+						Url = $"{URL_ROOT}{x.GetAttribute("href")}",
+						Dlc = column.QuerySelector("img[title=\"sote-new\"]") is not null,
+					});
+			}
+
+		return cache.Set(URL_SHIELDS, shields, cacheExpiry);
 	}
 
 	private static string FormatToId(string name) => name
