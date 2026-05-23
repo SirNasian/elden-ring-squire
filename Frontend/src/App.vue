@@ -24,7 +24,7 @@ interface ChecklistResponse {
 	items: Omit<ChecklistItem, "completed">[]
 }
 
-const STORAGE_KEY = "elden-ring-squire-completed"
+const STORAGE_KEY = "checklist-completed"
 
 const categories = ref<ChecklistCategory[]>([])
 const items = ref<ChecklistItem[]>([])
