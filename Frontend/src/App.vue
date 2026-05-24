@@ -179,9 +179,11 @@ onMounted(load)
 		<Tabs v-model:value="activeTab">
 			<TabList>
 				<Tab v-for="cat in categories" :key="cat.id" :value="cat.id">
-					{{ cat.label }}
-					<Tag :value="`${categoryCounts[cat.id]?.completed ?? 0} / ${categoryCounts[cat.id]?.total ?? 0}`"
-						severity="secondary" class="tab-count" />
+					<div class="tab-wrapper">
+						<div>{{ cat.label }}</div>
+						<Tag :value="`${categoryCounts[cat.id]?.completed ?? 0} / ${categoryCounts[cat.id]?.total ?? 0}`"
+							severity="secondary" class="tab-count" />
+					</div>
 				</Tab>
 			</TabList>
 		</Tabs>
@@ -277,6 +279,14 @@ body {
 .tab-count {
 	margin-left: 0.5rem;
 	font-size: 0.75rem;
+}
+
+.tab-wrapper {
+	display: flex;
+}
+
+.tab-wrapper > div {
+	align-content: center;
 }
 
 .table-grid {
