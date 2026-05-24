@@ -176,50 +176,52 @@ onMounted(load)
 			</template>
 		</Toolbar>
 
-		<Tabs v-model:value="activeTab">
-			<TabList>
-				<Tab v-for="cat in categories" :key="cat.id" :value="cat.id">
-					<div class="tab-wrapper">
-						<div>{{ cat.label }}</div>
-						<Tag :value="`${categoryCounts[cat.id]?.completed ?? 0} / ${categoryCounts[cat.id]?.total ?? 0}`"
-							severity="secondary" class="tab-count" />
-					</div>
-				</Tab>
-			</TabList>
-		</Tabs>
-
-		<div class="table-header table-grid">
-			<div></div>
-			<div>Name</div>
-			<div>{{ groupCaption }}</div>
-			<div></div>
-			<div></div>
+		<div v-if="loading" class="table-loading">
+			<i class="pi pi-spin pi-spinner" /> Loading...
 		</div>
+		<div v-else class="table-wrapper">
+			<Tabs v-model:value="activeTab">
+				<TabList>
+					<Tab v-for="cat in categories" :key="cat.id" :value="cat.id">
+						<div class="tab-wrapper">
+							<div>{{ cat.label }}</div>
+							<Tag :value="`${categoryCounts[cat.id]?.completed ?? 0} / ${categoryCounts[cat.id]?.total ?? 0}`"
+								severity="secondary" class="tab-count" />
+						</div>
+					</Tab>
+				</TabList>
+			</Tabs>
 
-		<div ref="scrollRef" class="table-scroll">
-			<div v-if="loading" class="table-empty">
-				<i class="pi pi-spin pi-spinner" /> Loading...
+			<div class="table-header table-grid">
+				<div></div>
+				<div>Name</div>
+				<div>{{ groupCaption }}</div>
+				<div></div>
+				<div></div>
 			</div>
-			<div v-else :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
-				<div v-for="row in virtualRows" :key="row.item.id" class="table-row table-grid"
-					:class="{ 'row-stripe': row.index % 2 !== 0, 'row-done': row.item.completed }"
-					:style="{ position: 'absolute', top: 0, width: '100%', transform: `translateY(${row.start}px)` }">
-					<div class="cell">
-						<Checkbox v-model="row.item.completed" :binary="true" @change="save()" />
-					</div>
-					<div class="cell">
-						<a v-if="row.item.url" :href="row.item.url" target="_blank" rel="noopener noreferrer">{{
-							row.item.name
-							}}</a>
-						<span v-else>{{ row.item.name }}</span>
-					</div>
-					<div class="cell">{{ row.item.group }}</div>
-					<div class="cell">
-						<Tag v-if="row.item.dlc" value="DLC" severity="warn" />
-					</div>
-					<div class="cell">
-						<Tag :value="completedCaption[row.item.completed ? 1 : 0]"
-							:severity="row.item.completed ? 'success' : 'danger'" />
+
+			<div ref="scrollRef" class="table-scroll">
+				<div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
+					<div v-for="row in virtualRows" :key="row.item.id" class="table-row table-grid"
+						:class="{ 'row-stripe': row.index % 2 !== 0, 'row-done': row.item.completed }"
+						:style="{ position: 'absolute', top: 0, width: '100%', transform: `translateY(${row.start}px)` }">
+						<div class="cell">
+							<Checkbox v-model="row.item.completed" :binary="true" @change="save()" />
+						</div>
+						<div class="cell">
+							<a v-if="row.item.url" :href="row.item.url" target="_blank" rel="noopener noreferrer">{{
+								row.item.name
+								}}</a>
+							<span v-else>{{ row.item.name }}</span>
+						</div>
+						<div class="cell">{{ row.item.group }}</div>
+						<div class="cell">
+							<Tag v-if="row.item.dlc" value="DLC" severity="warn" />
+						</div>
+						<div class="cell">
+							<Tag :value="completedCaption[row.item.completed ? 1 : 0]"
+								:severity="row.item.completed ? 'success' : 'danger'" />
+						</div>
 					</div>
 				</div>
 			</div>
@@ -244,16 +246,17 @@ body {
 
 <style scoped>
 .app-wrapper {
-	max-width: 1200px;
-	margin: 0 auto;
-	padding: 1.5rem;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+	padding: 1rem;
 }
 
 .app-header {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	margin-bottom: 1.5rem;
 }
 
 .app-header h1 {
@@ -266,14 +269,17 @@ body {
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.75rem 1rem;
-	margin-bottom: 1rem;
 	border-radius: 6px;
 	background: var(--p-red-100);
 	color: var(--p-red-700);
 }
 
 .checklist-toolbar {
-	margin-bottom: 0.75rem;
+	border: 0;
+}
+
+.p-inputtext {
+	border: 0;
 }
 
 .tab-count {
@@ -307,15 +313,23 @@ body {
 	padding: 0 0.25rem;
 }
 
-.table-scroll {
-	overflow-y: auto;
-	max-height: calc(100vh - 280px);
-}
-
 .table-row {
 	padding: 0.5rem 0.75rem;
 	border-bottom: 1px solid var(--p-surface-border);
 	background: var(--p-surface-card);
+}
+
+.table-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: scroll;
+}
+
+.table-wrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
 }
 
 .row-stripe {
@@ -336,12 +350,12 @@ body {
 	justify-content: center;
 }
 
-.table-empty {
+.table-loading {
+	flex: 1;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	gap: 0.5rem;
-	height: 6rem;
 	color: var(--p-text-muted-color);
 }
 
