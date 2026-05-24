@@ -97,9 +97,7 @@ const filteredItems = computed(() => items.value.filter(matchesFilters))
 const categoryCounts = computed(() => {
 	const counts: Record<string, { completed: number; total: number }> = {}
 	for (const cat of categories.value) {
-		let catItems = items.value.filter(x => x.category === cat.id)
-		if (dlcFilter.value === "dlc") catItems = catItems.filter(x => x.dlc)
-		else if (dlcFilter.value === "base") catItems = catItems.filter(x => !x.dlc)
+		const catItems = filteredItems.value.filter(x => x.category === cat.id)
 		counts[cat.id] = {
 			completed: catItems.filter(x => x.completed).length,
 			total: catItems.length,
@@ -176,19 +174,24 @@ onMounted(load)
 			</template>
 		</Toolbar>
 
-		<div v-if="loading" class="table-loading">
+		<div v-if="loading" class="table-loading table-background">
 			<i class="pi pi-spin pi-spinner" /> Loading...
 		</div>
-		<div v-else class="table-wrapper">
+		<div v-else-if="!Object.values(categoryCounts).find(x => x.total)" class="table-loading table-background">
+			¯\_(ツ)_/¯
+		</div>
+		<div v-else class="table-wrapper table-background">
 			<Tabs v-model:value="activeTab">
 				<TabList>
-					<Tab v-for="cat in categories" :key="cat.id" :value="cat.id">
-						<div class="tab-wrapper">
-							<div>{{ cat.label }}</div>
-							<Tag :value="`${categoryCounts[cat.id]?.completed ?? 0} / ${categoryCounts[cat.id]?.total ?? 0}`"
-								severity="secondary" class="tab-count" />
-						</div>
-					</Tab>
+					<template v-for="cat in categories">
+						<Tab v-if="categoryCounts[cat.id]?.total > 0" :key="cat.id" :value="cat.id">
+							<div class="tab-wrapper">
+								<div>{{ cat.label }}</div>
+								<Tag :value="`${categoryCounts[cat.id]?.completed ?? 0} / ${categoryCounts[cat.id]?.total ?? 0}`"
+									severity="secondary" class="tab-count" />
+							</div>
+						</Tab>
+					</template>
 				</TabList>
 			</Tabs>
 
@@ -344,6 +347,13 @@ body {
 	padding: 0 0.25rem;
 }
 
+.table-background {
+	padding: var(--p-toolbar-padding);
+	background: var(--p-toolbar-background);
+	color: var(--p-toolbar-color);
+	border-radius: var(--p-toolbar-border-radius);
+}
+
 .table-grid > :nth-child(4),
 .table-grid > :nth-child(5) {
 	display: flex;
@@ -366,5 +376,9 @@ a {
 
 a:hover {
 	text-decoration: underline;
+}
+
+.p-tab {
+	padding-top: 0;
 }
 </style>
