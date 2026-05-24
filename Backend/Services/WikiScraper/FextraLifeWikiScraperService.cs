@@ -17,6 +17,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_SORCERIES    = "https://eldenring.wiki.fextralife.com/Sorceries";
 	private const string URL_INCANTATIONS = "https://eldenring.wiki.fextralife.com/Incantations";
 	private const string URL_TALISMANS    = "https://eldenring.wiki.fextralife.com/Talismans";
+	private const string URL_ASHES_OF_WAR = "https://eldenring.wiki.fextralife.com/Ashes+of+War";
 
 	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
 	[
@@ -28,6 +29,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		new() { Id = "sorceries",    Label = "Sorceries",    GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
 		new() { Id = "incantations", Label = "Incantations", GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
 		new() { Id = "talismans",    Label = "Talismans",    GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "ashes-of-war", Label = "Ashes of War", GroupCaption = "Affinity", StatusLabels = ["Not Obtained", "Obtained"] },
 	];
 
 	public override async Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default) =>
@@ -40,7 +42,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 				GetSpiritAshes(ct),
 				GetSorceries(ct),
 				GetIncantations(ct),
-				GetTalismans(ct)
+				GetTalismans(ct),
+				GetAshesOfWar(ct)
 			)).SelectMany(x => x)
 		];
 
@@ -315,5 +318,38 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 			);
 
 		return cache.Set(URL_TALISMANS, items, cacheDuration);
+	}
+
+	private async Task<IList<ChecklistItem>> GetAshesOfWar(CancellationToken ct = default)
+	{
+		static IElement? GetHeader(IElement? x) =>
+			(x is null || x.TagName.Equals(TagNames.H4, StringComparison.OrdinalIgnoreCase))
+				? x : GetHeader(x.PreviousElementSibling);
+
+		static string ExtractGroup(IElement x) =>
+			GetHeader(x.ParentElement)?.TextContent.Replace("Ashes of War", "").Trim() ?? "";
+
+		static string ExtractName(IElement x) =>
+			x.QuerySelector("a")?.GetAttribute("title")?.Replace("Elden Ring Ash of War:", "").Trim() ?? "";
+
+		if (cache.TryGetValue(URL_ASHES_OF_WAR, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
+
+		items = [..
+			(await GetParsedDocumentAsync(URL_ASHES_OF_WAR, ct))
+				.QuerySelectorAll("div.tabcontent.\\33-tab h4 ~ ul > li")
+				.Select(x => new ChecklistItem
+				{
+					Id = $"ash-of-war:{FormatId(ExtractName(x))}",
+					Category = "ashes-of-war",
+					Name = ExtractName(x),
+					Group = ExtractGroup(x),
+					Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
+					Dlc = false,
+				}
+		)];
+
+		return cache.Set(URL_ASHES_OF_WAR, items, cacheDuration);
 	}
 }
