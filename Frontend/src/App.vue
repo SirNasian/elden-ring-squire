@@ -108,10 +108,9 @@ const categoryCounts = computed(() => {
 	return counts
 })
 
-watch(filteredItems, () => {
-	const hasItems = filteredItems.value.some(x => x.category === activeTab.value)
-	if (hasItems) return
-	const first = categories.value.find(c => filteredItems.value.some(x => x.category === c.id))
+watch(categoryCounts, () => {
+	if (categoryCounts.value[activeTab.value]?.total > 0) return
+	const first = categories.value.find(c => categoryCounts.value[c.id]?.total > 0)
 	if (first) activeTab.value = first.id
 })
 
