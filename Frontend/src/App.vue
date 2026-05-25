@@ -245,10 +245,12 @@ onUnmounted(() => {
 				</IconField>
 			</template>
 			<template #end>
-				<SelectButton v-model="dlcFilter" :options="dlcOptions" option-label="label"
-					option-value="value" :allow-empty="false" style="margin-right: 1rem" />
-				<SelectButton v-model="completionFilter" :options="completionOptions" option-label="label"
-					option-value="value" :allow-empty="false" />
+				<div class="filter-buttons">
+					<SelectButton v-model="dlcFilter" :options="dlcOptions" option-label="label"
+						option-value="value" :allow-empty="false" />
+					<SelectButton v-model="completionFilter" :options="completionOptions" option-label="label"
+						option-value="value" :allow-empty="false" />
+				</div>
 			</template>
 		</Toolbar>
 
@@ -462,5 +464,65 @@ a:hover {
 
 .p-tab {
 	padding-top: 0;
+}
+
+.filter-buttons {
+	display: flex;
+	gap: 1rem;
+	align-items: center;
+}
+
+@media (pointer: coarse) {
+	.row-selected {
+		outline: none;
+	}
+}
+
+@media (max-width: 640px) {
+	.app-wrapper {
+		padding: 0.5rem;
+		gap: 0.5rem;
+	}
+
+	.app-header h1 {
+		font-size: 1.25rem;
+	}
+
+	.checklist-toolbar :deep(.p-toolbar) {
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.checklist-toolbar :deep(.p-toolbar-start),
+	.checklist-toolbar :deep(.p-toolbar-end) {
+		width: 100%;
+	}
+
+	.checklist-toolbar :deep(.p-iconfield) {
+		width: 100%;
+	}
+
+	.checklist-toolbar :deep(.p-inputtext) {
+		width: 100%;
+	}
+
+	.filter-buttons {
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.table-wrapper :deep(.p-tablist-content) {
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+
+	.table-grid {
+		grid-template-columns: auto 1fr auto;
+	}
+
+	.table-grid > :nth-child(3),
+	.table-grid > :nth-child(4) {
+		display: none;
+	}
 }
 </style>
