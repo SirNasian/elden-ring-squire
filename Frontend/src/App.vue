@@ -213,12 +213,16 @@ onMounted(load)
 							<Checkbox v-model="row.item.completed" :binary="true" @change="save()" />
 						</div>
 						<div class="cell">
-							<a v-if="row.item.url" :href="row.item.url" target="_blank" rel="noopener noreferrer">{{
-								row.item.name
-								}}</a>
-							<span v-else>{{ row.item.name }}</span>
+							<a v-if="row.item.url" :href="row.item.url" target="_blank" rel="noopener noreferrer">
+								{{ row.item.name }}
+							</a>
+							<span v-else>
+								{{ row.item.name }}
+							</span>
 						</div>
-						<div class="cell">{{ row.item.group }}</div>
+						<div class="cell">
+							{{ row.item.group }}
+						</div>
 						<div class="cell">
 							<Tag v-if="row.item.dlc" value="DLC" severity="warn" />
 						</div>
@@ -301,7 +305,7 @@ body {
 
 .table-grid {
 	display: grid;
-	grid-template-columns: 3.5rem 1fr auto 5rem 8rem;
+	grid-template-columns: auto 1fr auto 4rem 8rem;
 	align-items: center;
 }
 
@@ -355,8 +359,7 @@ body {
 	border-radius: var(--p-toolbar-border-radius);
 }
 
-.table-grid > :nth-child(4),
-.table-grid > :nth-child(5) {
+.table-grid > :nth-child(4) {
 	display: flex;
 	justify-content: center;
 }
