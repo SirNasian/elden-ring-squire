@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue"
+import { ref, computed, watch, onMounted, onUnmounted } from "vue"
 import { useVirtualizer } from "@tanstack/vue-virtual"
 
 interface ChecklistCategory {
@@ -125,6 +125,18 @@ watch(categoryCounts, () => {
 	if (first) activeTab.value = first.id
 })
 
+const visibleTabs = computed(() => categories.value.filter(c => categoryCounts.value[c.id]?.total > 0))
+
+const navigateTabLeft = () => {
+	const idx = visibleTabs.value.findIndex(c => c.id === activeTab.value)
+	if (idx > 0) activeTab.value = visibleTabs.value[idx - 1].id
+}
+
+const navigateTabRight = () => {
+	const idx = visibleTabs.value.findIndex(c => c.id === activeTab.value)
+	if (idx < visibleTabs.value.length - 1) activeTab.value = visibleTabs.value[idx + 1].id
+}
+
 const activeConfig = computed(() => categories.value.find(x => x.id === activeTab.value))
 const groupCaption = computed(() => activeConfig.value?.groupCaption ?? "")
 const completedCaption = computed(() => activeConfig.value?.statusLabels ?? ["", ""] as [string, string])
@@ -132,6 +144,22 @@ const completedCaption = computed(() => activeConfig.value?.statusLabels ?? ["",
 const activeItems = computed(() => filteredItems.value.filter(x => x.category === activeTab.value))
 
 const scrollRef = ref<HTMLElement | null>(null)
+const searchRef = ref<{ $el: HTMLElement } | null>(null)
+
+const onGlobalKeydown = (e: KeyboardEvent) => {
+	if (e.ctrlKey || e.metaKey || e.altKey) return
+	const inputEl = searchRef.value?.$el
+	if (document.activeElement === inputEl) return
+	switch (e.key) {
+		case 'ArrowUp':    e.preventDefault(); navigateUp(); break
+		case 'ArrowDown':  e.preventDefault(); navigateDown(); break
+		case 'ArrowLeft':  e.preventDefault(); navigateTabLeft(); break
+		case 'ArrowRight': e.preventDefault(); navigateTabRight(); break
+		case 'Enter':      toggleSelected(); break
+		case 'Backspace':  inputEl?.focus(); break
+		default:           (e.key.length === 1) && inputEl?.focus()
+	}
+}
 
 const virtualizer = useVirtualizer(computed(() => ({
 	count: activeItems.value.length,
@@ -147,16 +175,49 @@ const virtualRows = computed(() =>
 	}))
 )
 
-const toggleFirst = () => {
-	const first = activeItems.value[0]
-	if (!first) return
-	first.completed = !first.completed
+const selectedIndex = ref(0)
+
+watch(activeItems, () => {
+	if (selectedIndex.value >= activeItems.value.length)
+		selectedIndex.value = 0
+})
+
+watch(activeTab, () => {
+	selectedIndex.value = 0
+	scrollRef.value?.scrollTo({ top: 0 })
+})
+
+const scrollToSelected = () => {
+	virtualizer.value.scrollToIndex(selectedIndex.value)
+}
+
+const navigateUp = () => {
+	if (!activeItems.value.length) return
+	if (selectedIndex.value > 0) selectedIndex.value--
+	scrollToSelected()
+}
+
+const navigateDown = () => {
+	if (!activeItems.value.length) return
+	if (selectedIndex.value < activeItems.value.length - 1) selectedIndex.value++
+	scrollToSelected()
+}
+
+const toggleSelected = () => {
+	const item = activeItems.value[selectedIndex.value]
+	if (!item) return
+	item.completed = !item.completed
 	save()
 }
 
-watch(activeTab, () => scrollRef.value?.scrollTo({ top: 0 }))
+onMounted(() => {
+	load()
+	document.addEventListener('keydown', onGlobalKeydown)
+})
 
-onMounted(load)
+onUnmounted(() => {
+	document.removeEventListener('keydown', onGlobalKeydown)
+})
 </script>
 
 <template>
@@ -175,7 +236,12 @@ onMounted(load)
 			<template #start>
 				<IconField>
 					<InputIcon class="pi pi-search" />
-					<InputText v-model="nameFilter" placeholder="Search..." @keydown.enter="toggleFirst" />
+					<InputText ref="searchRef" v-model="nameFilter" placeholder="Search..."
+							@keydown.enter="toggleSelected"
+							@keydown.up.prevent="navigateUp"
+							@keydown.down.prevent="navigateDown"
+							@keydown.left.prevent="navigateTabLeft"
+							@keydown.right.prevent="navigateTabRight" />
 				</IconField>
 			</template>
 			<template #end>
@@ -218,7 +284,7 @@ onMounted(load)
 			<div ref="scrollRef" class="table-scroll">
 				<div :style="{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }">
 					<div v-for="row in virtualRows" :key="row.item.id" class="table-row table-grid"
-						:class="{ 'row-stripe': row.index % 2 !== 0, 'row-done': row.item.completed }"
+						:class="{ 'row-done': row.item.completed, 'row-selected': row.index === selectedIndex }"
 						:style="{ position: 'absolute', top: 0, width: '100%', transform: `translateY(${row.start}px)` }">
 						<div class="cell">
 							<Checkbox v-model="row.item.completed" :binary="true" @change="save()" />
@@ -351,12 +417,13 @@ body {
 	min-height: 0;
 }
 
-.row-stripe {
-	background: var(--p-surface-ground);
-}
-
 .row-done {
 	opacity: 0.5;
+}
+
+.row-selected {
+	outline: 2px solid var(--p-primary-color);
+	outline-offset: -2px;
 }
 
 .cell {
