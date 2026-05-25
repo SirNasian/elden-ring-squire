@@ -46,7 +46,7 @@ const load = async () => {
 		categories.value = data.categories
 		items.value = data.items.map(x => ({ ...x, completed: completed.has(x.id) }))
 
-		if (!activeTab.value || !categories.value.some(c => c.id === activeTab.value))
+		if (!activeTab.value || !categories.value.some(x => x.id === activeTab.value))
 			activeTab.value = categories.value[0]?.id ?? ""
 	} catch (e) {
 		error.value = e instanceof Error ? e.message : "An unexpected error occurred."
@@ -81,8 +81,10 @@ const dlcOptions: { label: string; value: DlcFilter }[] = [
 
 function matchesFilters(item: ChecklistItem): boolean {
 	if (nameFilter.value.trim()) {
-		const lower = item.name.toLowerCase()
-		if (!nameFilter.value.trim().toLowerCase().split(/\s+/).every(w => lower.includes(w)))
+		const words = nameFilter.value.trim().toLowerCase().split(/\s+/)
+		const name = item.name.toLowerCase()
+		const group = item.group.toLowerCase()
+		if (!words.every(x => name.includes(x) || group.includes(x)))
 			return false
 	}
 	if (dlcFilter.value === "dlc" && !item.dlc) return false
@@ -113,7 +115,7 @@ watch(filteredItems, () => {
 	if (first) activeTab.value = first.id
 })
 
-const activeConfig = computed(() => categories.value.find(c => c.id === activeTab.value))
+const activeConfig = computed(() => categories.value.find(x => x.id === activeTab.value))
 const groupCaption = computed(() => activeConfig.value?.groupCaption ?? "")
 const completedCaption = computed(() => activeConfig.value?.statusLabels ?? ["", ""] as [string, string])
 
@@ -163,7 +165,7 @@ onMounted(load)
 			<template #start>
 				<IconField>
 					<InputIcon class="pi pi-search" />
-					<InputText v-model="nameFilter" placeholder="Search by name..." @keydown.enter="toggleFirst" />
+					<InputText v-model="nameFilter" placeholder="Search..." @keydown.enter="toggleFirst" />
 				</IconField>
 			</template>
 			<template #end>
