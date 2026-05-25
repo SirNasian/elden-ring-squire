@@ -25,6 +25,7 @@ interface ChecklistResponse {
 }
 
 const STORAGE_KEY = "checklist-completed"
+const CACHE_KEY = "checklist-cache"
 
 const categories = ref<ChecklistCategory[]>([])
 const items = ref<ChecklistItem[]>([])
@@ -33,18 +34,28 @@ const error = ref<string | null>(null)
 
 const activeTab = ref("")
 
-const load = async () => {
+const load = async (force = false) => {
 	loading.value = true
 	error.value = null
 	try {
-		const res = await fetch("/api/checklist")
-		if (!res.ok) throw new Error("Failed to load data from the backend.")
+		let data: ChecklistResponse | null = null
 
-		const data: ChecklistResponse = await res.json()
+		if (!force) {
+			const cached = localStorage.getItem(CACHE_KEY)
+			if (cached) data = JSON.parse(cached) as ChecklistResponse
+		}
+
+		if (!data) {
+			const res = await fetch("/api/checklist")
+			if (!res.ok) throw new Error("Failed to load data from the backend.")
+			data = await res.json() as ChecklistResponse
+			localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+		}
+
 		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"))
 
-		categories.value = data.categories
-		items.value = data.items.map(x => ({ ...x, completed: completed.has(x.id) }))
+		categories.value = data!.categories
+		items.value = data!.items.map(x => ({ ...x, completed: completed.has(x.id) }))
 
 		if (!activeTab.value || !categories.value.some(x => x.id === activeTab.value))
 			activeTab.value = categories.value[0]?.id ?? ""
@@ -152,7 +163,7 @@ onMounted(load)
 	<div class="app-wrapper">
 		<header class="app-header">
 			<h1>Elden Ring Squire</h1>
-			<Button icon="pi pi-refresh" label="Refresh" :loading="loading" @click="load" />
+			<Button icon="pi pi-refresh" label="Refresh" :loading="loading" @click="load(true)" />
 		</header>
 
 		<div v-if="error" class="app-error">
