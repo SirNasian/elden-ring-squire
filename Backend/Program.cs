@@ -14,5 +14,9 @@ builder.Services.AddHttpClient<IChecklistDataService, FextraLifeWikiScraperServi
 var app = builder.Build();
 
 app.MapControllers();
+app.UseStaticFiles();
+app.MapFallback("/api/{**_}", (string _) => Results.NotFound());
+app.MapFallbackToFile("index.html");
+app.MapGet("/favicon.ico", () => Results.NoContent());
 
 app.Run();

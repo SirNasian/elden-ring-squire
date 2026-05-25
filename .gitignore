@@ -3,3 +3,4 @@ components.d.ts
 dist/
 node_modules/
 obj/
+wwwroot/
