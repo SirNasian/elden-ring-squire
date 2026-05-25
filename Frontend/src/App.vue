@@ -422,8 +422,8 @@ body {
 }
 
 .row-selected {
-	outline: 2px solid var(--p-primary-color);
-	outline-offset: -2px;
+	outline: 1px solid var(--p-primary-color);
+	outline-offset: -1px;
 }
 
 .cell {
