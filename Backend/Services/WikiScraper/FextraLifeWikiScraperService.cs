@@ -139,8 +139,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 
 		items = [];
 		var document = await GetParsedDocumentAsync(URL_WEAPONS, ct);
-		var query = "#wiki-content-block h3[style=\"text-align: center;\"] ~ div.row.gallery";
-		foreach (var row in document.QuerySelectorAll(query))
+		var query = "#wiki-content-block h3[style=\"text-align: center;\"] ~ div.row";
+		foreach (var row in document.QuerySelectorAll(query).Where(x => x.QuerySelector("h3") is null))
 			items.AddRange(
 				row
 					.QuerySelectorAll("div.col-xs-6.col-sm-2")
