@@ -27,7 +27,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
 	[
 		new() { Id = "bosses",        Label = "Bosses",        GroupCaption = "Location", StatusLabels = ["Alive",        "Defeated"] },
-		new() { Id = "graces",        Label = " Graces",       GroupCaption = "Area",     StatusLabels = ["Not Found",    "Found"] },
+		new() { Id = "graces",        Label = "Graces",        GroupCaption = "Area",     StatusLabels = ["Not Found",    "Found"] },
 		new() { Id = "weapons",       Label = "Weapons",       GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "shields",       Label = "Shields",       GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "spirit-ashes",  Label = "Spirit Ashes",  GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
