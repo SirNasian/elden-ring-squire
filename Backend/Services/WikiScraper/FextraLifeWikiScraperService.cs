@@ -18,6 +18,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_INCANTATIONS = "https://eldenring.wiki.fextralife.com/Incantations";
 	private const string URL_TALISMANS    = "https://eldenring.wiki.fextralife.com/Talismans";
 	private const string URL_ASHES_OF_WAR = "https://eldenring.wiki.fextralife.com/Ashes+of+War";
+	private const string URL_COOKBOOKS    = "https://eldenring.wiki.fextralife.com/Cookbooks";
 
 	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
 	[
@@ -30,6 +31,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		new() { Id = "incantations", Label = "Incantations", GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
 		new() { Id = "talismans",    Label = "Talismans",    GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "ashes-of-war", Label = "Ashes of War", GroupCaption = "Affinity", StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "cookbooks",    Label = "Cookbooks",    GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 	];
 
 	public override async Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default) =>
@@ -43,7 +45,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 				GetSorceries(ct),
 				GetIncantations(ct),
 				GetTalismans(ct),
-				GetAshesOfWar(ct)
+				GetAshesOfWar(ct),
+				GetCookbooks(ct)
 			)).SelectMany(x => x)
 		];
 
@@ -351,5 +354,32 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		)];
 
 		return cache.Set(URL_ASHES_OF_WAR, items, cacheDuration);
+	}
+
+	private async Task<IList<ChecklistItem>> GetCookbooks(CancellationToken ct = default)
+	{
+		static string ExtractName(IElement x) =>
+			x.QuerySelector("a")?.GetAttribute("title")?.Replace("Elden Ring", "").Trim() ?? "";
+
+		if (cache.TryGetValue(URL_COOKBOOKS, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
+
+		items = [..
+			(await GetParsedDocumentAsync(URL_COOKBOOKS, ct))
+				.QuerySelectorAll("div.tabcontent.\\31-tab h4")
+				.Where(x => x.QuerySelector("a") is not null)
+				.Select(x => new ChecklistItem
+				{
+					Id = $"cookbook:{FormatId(ExtractName(x))}",
+					Category = "cookbooks",
+					Name = ExtractName(x),
+					Group = "",
+					Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
+					Dlc = x.QuerySelector("img[title=\"sote-new\"]") is not null,
+				}
+		)];
+
+		return cache.Set(URL_COOKBOOKS, items, cacheDuration);
 	}
 }
