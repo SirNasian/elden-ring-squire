@@ -8,30 +8,32 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 {
 	private static readonly TimeSpan cacheDuration = TimeSpan.FromHours(1);
 
-	private const string URL_ROOT         = "https://eldenring.wiki.fextralife.com";
-	private const string URL_BOSSES       = "https://eldenring.wiki.fextralife.com/Bosses";
-	private const string URL_GRACES       = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
-	private const string URL_WEAPONS      = "https://eldenring.wiki.fextralife.com/Weapons";
-	private const string URL_SHIELDS      = "https://eldenring.wiki.fextralife.com/Shields";
-	private const string URL_SPIRIT_ASHES = "https://eldenring.wiki.fextralife.com/Spirit+Ashes";
-	private const string URL_SORCERIES    = "https://eldenring.wiki.fextralife.com/Sorceries";
-	private const string URL_INCANTATIONS = "https://eldenring.wiki.fextralife.com/Incantations";
-	private const string URL_TALISMANS    = "https://eldenring.wiki.fextralife.com/Talismans";
-	private const string URL_ASHES_OF_WAR = "https://eldenring.wiki.fextralife.com/Ashes+of+War";
-	private const string URL_COOKBOOKS    = "https://eldenring.wiki.fextralife.com/Cookbooks";
+	private const string URL_ROOT          = "https://eldenring.wiki.fextralife.com";
+	private const string URL_BOSSES        = "https://eldenring.wiki.fextralife.com/Bosses";
+	private const string URL_GRACES        = "https://eldenring.wiki.fextralife.com/Sites+of+Grace";
+	private const string URL_WEAPONS       = "https://eldenring.wiki.fextralife.com/Weapons";
+	private const string URL_SHIELDS       = "https://eldenring.wiki.fextralife.com/Shields";
+	private const string URL_SPIRIT_ASHES  = "https://eldenring.wiki.fextralife.com/Spirit+Ashes";
+	private const string URL_SORCERIES     = "https://eldenring.wiki.fextralife.com/Sorceries";
+	private const string URL_INCANTATIONS  = "https://eldenring.wiki.fextralife.com/Incantations";
+	private const string URL_TALISMANS     = "https://eldenring.wiki.fextralife.com/Talismans";
+	private const string URL_ASHES_OF_WAR  = "https://eldenring.wiki.fextralife.com/Ashes+of+War";
+	private const string URL_COOKBOOKS     = "https://eldenring.wiki.fextralife.com/Cookbooks";
+	private const string URL_BALL_BEARINGS = "https://eldenring.wiki.fextralife.com/Bell+Bearings";
 
 	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
 	[
-		new() { Id = "bosses",       Label = "Bosses",       GroupCaption = "Location", StatusLabels = ["Alive",        "Defeated"] },
-		new() { Id = "graces",       Label = "Graces",       GroupCaption = "Area",     StatusLabels = ["Not Found",    "Found"] },
-		new() { Id = "weapons",      Label = "Weapons",      GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
-		new() { Id = "shields",      Label = "Shields",      GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
-		new() { Id = "spirit-ashes", Label = "Spirit Ashes", GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
-		new() { Id = "sorceries",    Label = "Sorceries",    GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
-		new() { Id = "incantations", Label = "Incantations", GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
-		new() { Id = "talismans",    Label = "Talismans",    GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
-		new() { Id = "ashes-of-war", Label = "Ashes of War", GroupCaption = "Affinity", StatusLabels = ["Not Obtained", "Obtained"] },
-		new() { Id = "cookbooks",    Label = "Cookbooks",    GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "bosses",        Label = "Bosses",        GroupCaption = "Location", StatusLabels = ["Alive",        "Defeated"] },
+		new() { Id = "graces",        Label = " Graces",       GroupCaption = "Area",     StatusLabels = ["Not Found",    "Found"] },
+		new() { Id = "weapons",       Label = "Weapons",       GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "shields",       Label = "Shields",       GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "spirit-ashes",  Label = "Spirit Ashes",  GroupCaption = "Type",     StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "sorceries",     Label = "Sorceries",     GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
+		new() { Id = "incantations",  Label = "Incantations",  GroupCaption = "School",   StatusLabels = ["Not Known",    "Learned"] },
+		new() { Id = "talismans",     Label = "Talismans",     GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "ashes-of-war",  Label = "Ashes of War",  GroupCaption = "Affinity", StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "cookbooks",     Label = "Cookbooks",     GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "ball-bearings", Label = "Ball Bearings", GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 	];
 
 	public override async Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default) =>
@@ -46,7 +48,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 				GetIncantations(ct),
 				GetTalismans(ct),
 				GetAshesOfWar(ct),
-				GetCookbooks(ct)
+				GetCookbooks(ct),
+				GetBallBearings(ct)
 			)).SelectMany(x => x)
 		];
 
@@ -381,5 +384,32 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		)];
 
 		return cache.Set(URL_COOKBOOKS, items, cacheDuration);
+	}
+
+	private async Task<IList<ChecklistItem>> GetBallBearings(CancellationToken ct = default)
+	{
+		static string ExtractName(IElement x) =>
+			x.QuerySelector("a")?.GetAttribute("title")?.Replace("Elden Ring", "").Trim() ?? "";
+
+		if (cache.TryGetValue(URL_BALL_BEARINGS, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
+
+		items = [..
+			(await GetParsedDocumentAsync(URL_BALL_BEARINGS, ct))
+				.QuerySelectorAll("div.tabcontent.\\31-tab h4")
+				.Where(x => x.QuerySelector("a") is not null)
+				.Select(x => new ChecklistItem
+				{
+					Id = $"ball-bearing:{FormatId(ExtractName(x))}",
+					Category = "ball-bearings",
+					Name = ExtractName(x),
+					Group = "",
+					Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
+					Dlc = x.QuerySelector("img[title=\"sote-new\"]") is not null,
+				}
+		)];
+
+		return cache.Set(URL_BALL_BEARINGS, items, cacheDuration);
 	}
 }
