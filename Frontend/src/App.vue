@@ -54,8 +54,12 @@ const load = async (force = false) => {
 
 		const completed = new Set<string>(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]"))
 
-		categories.value = data!.categories
-		items.value = data!.items.map(x => ({ ...x, completed: completed.has(x.id) }))
+		categories.value = data.categories
+		items.value = data.items.map(x => ({
+			...x,
+			url: x.url && /^https?:\/\//i.test(x.url) ? x.url : null,
+			completed: completed.has(x.id),
+		}))
 
 		if (!activeTab.value || !categories.value.some(x => x.id === activeTab.value))
 			activeTab.value = categories.value[0]?.id ?? ""
@@ -90,22 +94,29 @@ const dlcOptions: { label: string; value: DlcFilter }[] = [
 	{ label: "DLC", value: "dlc" },
 ]
 
-function matchesFilters(item: ChecklistItem): boolean {
-	if (nameFilter.value.trim()) {
-		const words = nameFilter.value.trim().toLowerCase().split(/\s+/)
+const matchesFilters = (
+	item: ChecklistItem,
+	nameFilter: string,
+	completionFilter: CompletionFilter,
+	dlcFilter: DlcFilter
+): boolean => {
+	if (nameFilter.trim()) {
+		const words = nameFilter.trim().toLowerCase().split(/\s+/)
 		const name = item.name.toLowerCase()
 		const group = item.group.toLowerCase()
 		if (!words.every(x => name.includes(x) || group.includes(x)))
 			return false
 	}
-	if (dlcFilter.value === "dlc" && !item.dlc) return false
-	if (dlcFilter.value === "base" && item.dlc) return false
-	if (completionFilter.value === "completed") return item.completed
-	if (completionFilter.value === "incomplete") return !item.completed
+	if (dlcFilter === "dlc" && !item.dlc) return false
+	if (dlcFilter === "base" && item.dlc) return false
+	if (completionFilter === "completed") return item.completed
+	if (completionFilter === "incomplete") return !item.completed
 	return true
 }
 
-const filteredItems = computed(() => items.value.filter(matchesFilters))
+const filteredItems = computed(() =>
+	items.value.filter(x => matchesFilters(x, nameFilter.value, completionFilter.value, dlcFilter.value))
+)
 
 const categoryCounts = computed(() => {
 	const counts: Record<string, { completed: number; total: number }> = {}
@@ -120,12 +131,12 @@ const categoryCounts = computed(() => {
 })
 
 watch(categoryCounts, () => {
-	if (categoryCounts.value[activeTab.value]?.total > 0) return
-	const first = categories.value.find(c => categoryCounts.value[c.id]?.total > 0)
+	if (categoryCounts.value[activeTab.value]?.total) return
+	const first = categories.value.find(c => categoryCounts.value[c.id]?.total)
 	if (first) activeTab.value = first.id
 })
 
-const visibleTabs = computed(() => categories.value.filter(c => categoryCounts.value[c.id]?.total > 0))
+const visibleTabs = computed(() => categories.value.filter(c => categoryCounts.value[c.id]?.total))
 
 const navigateTabLeft = () => {
 	const idx = visibleTabs.value.findIndex(c => c.id === activeTab.value)
@@ -180,7 +191,7 @@ const selectedIndex = ref(0)
 watch(activeItems, () => {
 	if (selectedIndex.value >= activeItems.value.length)
 		selectedIndex.value = 0
-})
+}, { flush: 'sync' })
 
 watch(activeTab, () => {
 	selectedIndex.value = 0
@@ -193,7 +204,7 @@ const scrollToSelected = () => {
 
 const navigateUp = () => {
 	if (!activeItems.value.length) return
-	if (selectedIndex.value > 0) selectedIndex.value--
+	if (selectedIndex.value) selectedIndex.value--
 	scrollToSelected()
 }
 
@@ -263,14 +274,12 @@ onUnmounted(() => {
 		<div v-else class="table-wrapper table-background">
 			<Tabs v-model:value="activeTab">
 				<TabList>
-					<template v-for="cat in categories">
-						<Tab v-if="categoryCounts[cat.id]?.total > 0" :key="cat.id" :value="cat.id">
-							<span>{{ cat.label }}</span>
-							<span class="tab-count">
-								{{ categoryCounts[cat.id]?.completed ?? 0 }} / {{ categoryCounts[cat.id]?.total ?? 0 }}
-							</span>
-						</Tab>
-					</template>
+					<Tab v-for="cat in visibleTabs" :key="cat.id" :value="cat.id">
+						<span>{{ cat.label }}</span>
+						<span class="tab-count">
+							{{ categoryCounts[cat.id]?.completed ?? 0 }} / {{ categoryCounts[cat.id]?.total ?? 0 }}
+						</span>
+					</Tab>
 				</TabList>
 			</Tabs>
 
