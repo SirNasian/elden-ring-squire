@@ -265,11 +265,10 @@ onUnmounted(() => {
 				<TabList>
 					<template v-for="cat in categories">
 						<Tab v-if="categoryCounts[cat.id]?.total > 0" :key="cat.id" :value="cat.id">
-							<div class="tab-wrapper">
-								<div>{{ cat.label }}</div>
-								<Tag :value="`${categoryCounts[cat.id]?.completed ?? 0} / ${categoryCounts[cat.id]?.total ?? 0}`"
-									severity="secondary" class="tab-count" />
-							</div>
+							<span>{{ cat.label }}</span>
+							<span class="tab-count">
+								{{ categoryCounts[cat.id]?.completed ?? 0 }} / {{ categoryCounts[cat.id]?.total ?? 0 }}
+							</span>
 						</Tab>
 					</template>
 				</TabList>
@@ -372,14 +371,11 @@ body {
 .tab-count {
 	margin-left: 0.5rem;
 	font-size: 0.75rem;
-}
-
-.tab-wrapper {
-	display: flex;
-}
-
-.tab-wrapper > div {
-	align-content: center;
+	padding: 0.15rem 0.4rem;
+	border-radius: var(--p-tag-border-radius, 4px);
+	background: var(--p-tag-secondary-background);
+	color: var(--p-tag-secondary-color);
+	white-space: nowrap;
 }
 
 .table-grid {
