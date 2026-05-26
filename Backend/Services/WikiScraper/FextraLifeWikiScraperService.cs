@@ -20,6 +20,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_ASHES_OF_WAR  = "https://eldenring.wiki.fextralife.com/Ashes+of+War";
 	private const string URL_COOKBOOKS     = "https://eldenring.wiki.fextralife.com/Cookbooks";
 	private const string URL_BALL_BEARINGS = "https://eldenring.wiki.fextralife.com/Bell+Bearings";
+	private const string URL_CRYSTAL_TEARS = "https://eldenring.wiki.fextralife.com/Crystal+Tears";
 
 	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
 	[
@@ -34,6 +35,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		new() { Id = "ashes-of-war",  Label = "Ashes of War",  GroupCaption = "Affinity", StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "cookbooks",     Label = "Cookbooks",     GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "ball-bearings", Label = "Ball Bearings", GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "crystal-tears", Label = "Crystal Tears", GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 	];
 
 	public override async Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default) =>
@@ -49,7 +51,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 				GetTalismans(ct),
 				GetAshesOfWar(ct),
 				GetCookbooks(ct),
-				GetBallBearings(ct)
+				GetBallBearings(ct),
+				GetCrystalTears(ct)
 			)).SelectMany(x => x)
 		];
 
@@ -411,5 +414,32 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		)];
 
 		return cache.Set(URL_BALL_BEARINGS, items, cacheDuration);
+	}
+
+	private async Task<IList<ChecklistItem>> GetCrystalTears(CancellationToken ct = default)
+	{
+		static string ExtractName(IElement x) =>
+			x.QuerySelector("a")?.GetAttribute("title")?.Replace("Elden Ring", "").Trim() ?? "";
+
+		if (cache.TryGetValue(URL_CRYSTAL_TEARS, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
+
+		items = [..
+			(await GetParsedDocumentAsync(URL_CRYSTAL_TEARS, ct))
+				.QuerySelectorAll("div.tabcontent.\\31-tab h4")
+				.Where(x => x.QuerySelector("a") is not null)
+				.Select(x => new ChecklistItem
+				{
+					Id = $"cystal-tear:{FormatId(ExtractName(x))}",
+					Category = "crystal-tears",
+					Name = ExtractName(x),
+					Group = "",
+					Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
+					Dlc = x.QuerySelector("img[title=\"sote-new\"]") is not null,
+				}
+		)];
+
+		return cache.Set(URL_CRYSTAL_TEARS, items, cacheDuration);
 	}
 }
