@@ -22,6 +22,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_BALL_BEARINGS = "https://eldenring.wiki.fextralife.com/Bell+Bearings";
 	private const string URL_CRYSTAL_TEARS = "https://eldenring.wiki.fextralife.com/Crystal+Tears";
 	private const string URL_GREAT_RUNES   = "https://eldenring.wiki.fextralife.com/Great+Runes";
+	private const string URL_TOOLS         = "https://eldenring.wiki.fextralife.com/Tools";
 
 	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
 	[
@@ -38,6 +39,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		new() { Id = "ball-bearings", Label = "Ball Bearings", GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "crystal-tears", Label = "Crystal Tears", GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "great-runes",   Label = "Great Runes",   GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "tools",         Label = "Tools",         GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 	];
 
 	public override async Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default) =>
@@ -55,7 +57,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 				GetCookbooks(ct),
 				GetBallBearings(ct),
 				GetCrystalTears(ct),
-				GetGreatRunes(ct)
+				GetGreatRunes(ct),
+				GetTools(ct)
 			)).SelectMany(x => x)
 		];
 
@@ -142,6 +145,9 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 			(x is null || x.TagName.Equals(TagNames.H3, StringComparison.OrdinalIgnoreCase))
 				? x : GetHeader(x.PreviousElementSibling);
 
+		static string ExtractGroup(IElement x) =>
+			GetHeader(x)?.TextContent.Trim() ?? "";
+
 		static string ExtractName(IElement x) =>
 			x.QuerySelector("a")?.GetAttribute("title")?[10..].Trim() ?? "";
 
@@ -153,20 +159,21 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		var document = await GetParsedDocumentAsync(URL_WEAPONS, ct);
 		var query = "#wiki-content-block h3[style=\"text-align: center;\"] ~ div.row";
 		foreach (var row in document.QuerySelectorAll(query).Where(x => x.QuerySelector("h3") is null))
-			items.AddRange(
-				row
-					.QuerySelectorAll("div.col-xs-6.col-sm-2")
-					.Where(x => x.QuerySelector("img") is not null)
-					.Select(x => new ChecklistItem
-					{
-						Id = $"weapon:{FormatId(ExtractName(x))}",
-						Category = "weapons",
-						Name = ExtractName(x),
-						Group = GetHeader(row)?.TextContent.Trim() ?? "",
-						Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
-						Dlc = x.QuerySelector("img[title=\"sote-new\"]") is not null,
-					})
-				);
+			if (ExtractGroup(row) != "Tools")
+				items.AddRange(
+					row
+						.QuerySelectorAll("div.col-xs-6.col-sm-2")
+						.Where(x => x.QuerySelector("img") is not null)
+						.Select(x => new ChecklistItem
+						{
+							Id = $"weapon:{FormatId(ExtractName(x))}",
+							Category = "weapons",
+							Name = ExtractName(x),
+							Group = ExtractGroup(row),
+							Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
+							Dlc = x.QuerySelector("img[title=\"sote-new\"]") is not null,
+						})
+					);
 
 		return cache.Set(URL_WEAPONS, items, cacheDuration);
 	}
@@ -471,5 +478,32 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		)];
 
 		return cache.Set(URL_GREAT_RUNES, items, cacheDuration);
+	}
+
+	private async Task<IList<ChecklistItem>> GetTools(CancellationToken ct = default)
+	{
+		static string ExtractName(IElement x) =>
+			x.QuerySelector("a")?.GetAttribute("title")?.Replace("Elden Ring", "").Trim() ?? "";
+
+		if (cache.TryGetValue(URL_TOOLS, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
+
+		items = [..
+			(await GetParsedDocumentAsync(URL_TOOLS, ct))
+				.QuerySelectorAll("div.tabcontent.\\31-tab h4")
+				.Where(x => x.QuerySelector("a") is not null)
+				.Select(x => new ChecklistItem
+				{
+					Id = $"tool:{FormatId(ExtractName(x))}",
+					Category = "tools",
+					Name = ExtractName(x),
+					Group = "",
+					Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
+					Dlc = x.ParentElement?.QuerySelector("img[title=\"sote-new\"]") is not null,
+				}
+		)];
+
+		return cache.Set(URL_TOOLS, items, cacheDuration);
 	}
 }
