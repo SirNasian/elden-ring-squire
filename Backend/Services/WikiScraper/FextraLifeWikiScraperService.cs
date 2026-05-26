@@ -21,6 +21,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private const string URL_COOKBOOKS     = "https://eldenring.wiki.fextralife.com/Cookbooks";
 	private const string URL_BALL_BEARINGS = "https://eldenring.wiki.fextralife.com/Bell+Bearings";
 	private const string URL_CRYSTAL_TEARS = "https://eldenring.wiki.fextralife.com/Crystal+Tears";
+	private const string URL_GREAT_RUNES   = "https://eldenring.wiki.fextralife.com/Great+Runes";
 
 	public override async Task<IList<ChecklistCategory>> GetCategories(CancellationToken ct = default) =>
 	[
@@ -36,6 +37,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		new() { Id = "cookbooks",     Label = "Cookbooks",     GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "ball-bearings", Label = "Ball Bearings", GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 		new() { Id = "crystal-tears", Label = "Crystal Tears", GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
+		new() { Id = "great-runes",   Label = "Great Runes",   GroupCaption = "",         StatusLabels = ["Not Obtained", "Obtained"] },
 	];
 
 	public override async Task<IList<ChecklistItem>> GetItems(CancellationToken ct = default) =>
@@ -52,7 +54,8 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 				GetAshesOfWar(ct),
 				GetCookbooks(ct),
 				GetBallBearings(ct),
-				GetCrystalTears(ct)
+				GetCrystalTears(ct),
+				GetGreatRunes(ct)
 			)).SelectMany(x => x)
 		];
 
@@ -441,5 +444,32 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		)];
 
 		return cache.Set(URL_CRYSTAL_TEARS, items, cacheDuration);
+	}
+
+	private async Task<IList<ChecklistItem>> GetGreatRunes(CancellationToken ct = default)
+	{
+		static string ExtractName(IElement x) =>
+			x.QuerySelector("a")?.GetAttribute("title")?.Replace("Elden Ring", "").Trim() ?? "";
+
+		if (cache.TryGetValue(URL_GREAT_RUNES, out List<ChecklistItem>? items))
+			if (items is not null)
+				return items;
+
+		items = [..
+			(await GetParsedDocumentAsync(URL_GREAT_RUNES, ct))
+				.QuerySelectorAll("div.tabcontent.\\30-tab h4")
+				.Where(x => x.QuerySelector("a") is not null)
+				.Select(x => new ChecklistItem
+				{
+					Id = $"great-rune:{FormatId(ExtractName(x))}",
+					Category = "great-runes",
+					Name = ExtractName(x),
+					Group = "",
+					Url = $"{URL_ROOT}{x.QuerySelector("a")?.GetAttribute("href")}",
+					Dlc = x.ParentElement?.QuerySelector("img[alt=\"sote new\"]") is not null,
+				}
+		)];
+
+		return cache.Set(URL_GREAT_RUNES, items, cacheDuration);
 	}
 }
