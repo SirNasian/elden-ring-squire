@@ -105,14 +105,14 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	private async Task<IList<ChecklistItem>> GetGraces(CancellationToken ct = default)
 	{
 		static IElement? GetHeader(IElement? x) =>
-			(x is null || x.TagName.Equals(TagNames.H4, StringComparison.OrdinalIgnoreCase))
-				? x : GetHeader(x.PreviousElementSibling);
+			(x is null || x.TagName is "H3" or "H4")
+				? x : GetHeader(x.PreviousElementSibling ?? x.ParentElement);
 
 		static string ExtractGroup(IElement x) =>
 			GetHeader(x)?.TextContent.Split('(').First().Trim() ?? "";
 
 		static string ExtractName(IElement x) =>
-			string.Concat(x.TextContent.Split('[').First().Trim());
+			string.Concat(x.TextContent.Split(['[', '(']).First().Trim());
 
 		if (cache.TryGetValue(URL_GRACES, out List<ChecklistItem>? items))
 			if (items is not null)
@@ -121,7 +121,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 		items = [];
 		var document = await GetParsedDocumentAsync(URL_GRACES, ct);
 		foreach (var tab in new List<int>() { 2, 1 })
-			foreach (var list in document.QuerySelectorAll($"div.tabcontent.\\3{tab}-tab h4 ~ ul"))
+			foreach (var list in document.QuerySelectorAll($"div.tabcontent.\\3{tab}-tab ul"))
 				items.AddRange(
 					list
 						.QuerySelectorAll("li")
