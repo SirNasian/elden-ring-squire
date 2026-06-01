@@ -75,6 +75,44 @@ const save = (): void => {
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(completed))
 }
 
+const importRef = ref<HTMLInputElement | null>(null)
+
+const exportData = () => {
+	const completed = localStorage.getItem(STORAGE_KEY)
+	const cache = localStorage.getItem(CACHE_KEY)
+	const data = {
+		completed: completed ? JSON.parse(completed) : [],
+		cache: cache ? JSON.parse(cache) : null,
+	}
+	const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+	const url = URL.createObjectURL(blob)
+	const a = document.createElement("a")
+	a.href = url
+	a.download = "elden-ring-squire.json"
+	a.click()
+	URL.revokeObjectURL(url)
+}
+
+const importData = (e: Event) => {
+	const file = (e.target as HTMLInputElement).files?.[0]
+	if (!file) return
+	const reader = new FileReader()
+	reader.onload = (ev) => {
+		try {
+			const data = JSON.parse(ev.target?.result as string)
+			if (Array.isArray(data.completed))
+				localStorage.setItem(STORAGE_KEY, JSON.stringify(data.completed))
+			if (data.cache)
+				localStorage.setItem(CACHE_KEY, JSON.stringify(data.cache))
+			load()
+		} catch {
+			error.value = "Failed to import: invalid file format."
+		}
+	}
+	reader.readAsText(file);
+	(e.target as HTMLInputElement).value = ""
+}
+
 type CompletionFilter = "all" | "completed" | "incomplete"
 type DlcFilter = "all" | "dlc" | "base"
 
@@ -235,7 +273,12 @@ onUnmounted(() => {
 	<div class="app-wrapper">
 		<header class="app-header">
 			<h1>Elden Ring Squire</h1>
-			<Button icon="pi pi-refresh" label="Refresh" :loading="loading" @click="load(true)" />
+			<div class="header-actions">
+				<Button icon="pi pi-upload" label="Import" severity="secondary" @click="importRef?.click()" />
+				<Button icon="pi pi-download" label="Export" severity="secondary" @click="exportData" />
+				<Button icon="pi pi-refresh" label="Refresh" :loading="loading" @click="load(true)" />
+			</div>
+			<input ref="importRef" type="file" accept=".json" style="display: none" @change="importData" />
 		</header>
 
 		<div v-if="error" class="app-error">
@@ -352,6 +395,12 @@ body {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+}
+
+.header-actions {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
 }
 
 .app-header h1 {
