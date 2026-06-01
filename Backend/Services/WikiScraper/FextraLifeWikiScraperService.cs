@@ -343,7 +343,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 	{
 		static IElement? GetHeader(IElement? x) =>
 			(x is null || x.TagName.Equals(TagNames.H4, StringComparison.OrdinalIgnoreCase))
-				? x : GetHeader(x.PreviousElementSibling);
+				? x : GetHeader(x.PreviousElementSibling ?? x.ParentElement);
 
 		static string ExtractGroup(IElement x) =>
 			GetHeader(x.ParentElement)?.TextContent.Replace("Ashes of War", "").Trim() ?? "";
@@ -357,7 +357,7 @@ public class FextraLifeWikiScraperService(HttpClient http, IMemoryCache cache) :
 
 		items = [..
 			(await GetParsedDocumentAsync(URL_ASHES_OF_WAR, ct))
-				.QuerySelectorAll("div.tabcontent.\\33-tab h4 ~ ul > li")
+				.QuerySelectorAll("div.tabcontent.\\33-tab h4 ~ ul li")
 				.Select(x => new ChecklistItem
 				{
 					Id = $"ash-of-war:{FormatId(ExtractName(x))}",
