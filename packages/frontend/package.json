@@ -1,9 +1,11 @@
 {
+	"name": "@ersquire/ui",
 	"scripts": {
 		"build": "vue-tsc -b && vite build",
 		"dev": "vite --host"
 	},
 	"dependencies": {
+		"@ersquire/shared": "workspace:*",
 		"@primeuix/themes": "^2.0.3",
 		"@tanstack/vue-virtual": "^3.13.24",
 		"primeicons": "^7.0.0",

@@ -1,34 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from "vue"
 import { useVirtualizer } from "@tanstack/vue-virtual"
-
-interface ChecklistCategory {
-	id: string
-	label: string
-	groupCaption: string
-	statusLabels: [string, string]
-}
-
-interface ChecklistItem {
-	id: string
-	name: string
-	group: string
-	url: string | null
-	dlc: boolean
-	category: string
-	completed: boolean
-}
-
-interface ChecklistResponse {
-	categories: ChecklistCategory[]
-	items: Omit<ChecklistItem, "completed">[]
-}
+import { ChecklistCategory, ChecklistItem, GetChecklistResponse } from "@ersquire/shared"
 
 const STORAGE_KEY = "checklist-completed"
 const CACHE_KEY = "checklist-cache"
 
 const categories = ref<ChecklistCategory[]>([])
-const items = ref<ChecklistItem[]>([])
+const items = ref<(ChecklistItem & { completed: boolean })[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -38,17 +17,17 @@ const load = async (force = false) => {
 	loading.value = true
 	error.value = null
 	try {
-		let data: ChecklistResponse | null = null
+		let data: GetChecklistResponse | null = null
 
 		if (!force) {
 			const cached = localStorage.getItem(CACHE_KEY)
-			if (cached) data = JSON.parse(cached) as ChecklistResponse
+			if (cached) data = JSON.parse(cached) as GetChecklistResponse
 		}
 
 		if (!data) {
 			const res = await fetch("/api/checklist")
 			if (!res.ok) throw new Error("Failed to load data from the backend.")
-			data = await res.json() as ChecklistResponse
+			data = await res.json() as GetChecklistResponse
 			localStorage.setItem(CACHE_KEY, JSON.stringify(data))
 		}
 
@@ -57,7 +36,7 @@ const load = async (force = false) => {
 		categories.value = data.categories
 		items.value = data.items.map(x => ({
 			...x,
-			url: x.url && /^https?:\/\//i.test(x.url) ? x.url : null,
+			url: x.url && /^https?:\/\//i.test(x.url) ? x.url : undefined,
 			completed: completed.has(x.id),
 		}))
 
@@ -133,7 +112,7 @@ const dlcOptions: { label: string; value: DlcFilter }[] = [
 ]
 
 const matchesFilters = (
-	item: ChecklistItem,
+	item: (ChecklistItem & { completed: boolean }),
 	nameFilter: string,
 	completionFilter: CompletionFilter,
 	dlcFilter: DlcFilter
